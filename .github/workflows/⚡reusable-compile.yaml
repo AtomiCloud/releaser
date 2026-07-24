@@ -1,0 +1,25 @@
+# ### releaser-reusable-compile
+# #### source: releaser
+name: ⚡ Reusable Compile
+on:
+  workflow_call:
+jobs:
+  compile:
+    name: Compile Binaries
+    runs-on:
+      - nscloud-ubuntu-22.04-amd64-4x8-with-cache
+      - nscloud-cache-size-50gb
+      - nscloud-cache-tag-atomi-nix-store-cache-linux-amd64
+    steps:
+      - uses: AtomiCloud/actions.setup-nix@v3
+      - uses: AtomiCloud/actions.cache-bun@v2
+      - name: Cross-compile standalone binaries
+        run: nix develop .#ci -c env BUN_INSTALL_OFFLINE=1 ./scripts/release/compile.sh
+      - name: Preserve executable modes in an archive
+        run: tar -C dist -czf cli-binaries.tar.gz bin
+      - name: Upload binary archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: cli-binaries
+          path: cli-binaries.tar.gz
+          if-no-files-found: error
