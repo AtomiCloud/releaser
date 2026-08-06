@@ -5,7 +5,7 @@ title: Semantic Release
 
 # Semantic Release
 
-`atomi_release.yaml` schema version 2 is the single source of truth for commit
+`release.yaml` schema version 2 is the single source of truth for commit
 types and scopes, lint rules, release levels, generated convention
 documentation, hooks, Git assets, and GitHub ownership. The repository has no
 standalone `.gitlint`, `sg` bootstrap, semantic-release runtime, or dynamic
@@ -19,12 +19,12 @@ canonical v2 and reports the remaining consumer changes.
 ## Commands
 
 ```bash
-releaser lint-commit -c atomi_release.yaml <commit-message-file>
+releaser lint-commit -c release.yaml <commit-message-file>
 releaser next
 releaser changelog
 releaser conventions
 releaser migrate
-releaser release -c atomi_release.yaml
+releaser release -c release.yaml
 ```
 
 `releaser conventions` maintains
@@ -60,7 +60,7 @@ so the vocabularies cannot drift independently.
 2. `release.yaml` starts through `workflow_run` with concurrency group
    `release`.
 3. `scripts/ci/release.sh` runs inside `nix develop .#releaser`.
-4. `releaser release -c atomi_release.yaml` calculates the version, updates the
+4. `releaser release -c release.yaml` calculates the version, updates the
    configured assets, creates the commit and tag, and atomically pushes them.
 5. The pushed tag starts `CD`, where GoReleaser validates the Nix package and
    publishes this repository's configured distribution channels.

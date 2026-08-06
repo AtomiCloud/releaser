@@ -49,7 +49,7 @@ describe('CLI controller handlers', () => {
     expect(success.codes).toEqual([0]);
 
     const none = captureIo();
-    await new ChangelogController(releases({ preview: async () => null }), none).handle('atomi_release.yaml');
+    await new ChangelogController(releases({ preview: async () => null }), none).handle('release.yaml');
     expect(none.out).toEqual([]);
     expect(none.codes).toEqual([0]);
 
@@ -61,7 +61,7 @@ describe('CLI controller handlers', () => {
         },
       }),
       failure,
-    ).handle('atomi_release.yaml');
+    ).handle('release.yaml');
     expect(failure.err).toEqual(['cannot calculate notes\n']);
     expect(failure.codes).toEqual([1]);
   });
@@ -83,7 +83,7 @@ describe('CLI controller handlers', () => {
     expect(success.codes).toEqual([0]);
 
     const none = captureIo();
-    await new NextController(releases({ preview: async () => null }), none).handle('atomi_release.yaml');
+    await new NextController(releases({ preview: async () => null }), none).handle('release.yaml');
     expect(none.err).toEqual(['no release necessary\n']);
     expect(none.codes).toEqual([2]);
 
@@ -95,7 +95,7 @@ describe('CLI controller handlers', () => {
         },
       }),
       failure,
-    ).handle('atomi_release.yaml');
+    ).handle('release.yaml');
     expect(failure.err).toEqual(['cannot calculate version\n']);
     expect(failure.codes).toEqual([1]);
   });
@@ -125,7 +125,7 @@ describe('CLI controller handlers', () => {
         },
       }),
       failure,
-    ).handle('atomi_release.yaml');
+    ).handle('release.yaml');
     expect(failure.err).toEqual(['cannot write conventions\n']);
     expect(failure.codes).toEqual([1]);
   });
@@ -136,7 +136,7 @@ describe('CLI controller handlers', () => {
     const check = {
       status: 'match',
       path: 'docs/developer/CommitConventions.md',
-      configPath: 'atomi_release.yaml',
+      configPath: 'release.yaml',
       expected: 'body',
       actual: 'body',
       diff: '',
@@ -144,13 +144,10 @@ describe('CLI controller handlers', () => {
     };
 
     // Act
-    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle(
-      'atomi_release.yaml',
-      true,
-    );
+    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle('release.yaml', true);
 
     // Assert
-    expect(io.out).toEqual(['docs/developer/CommitConventions.md is up to date with atomi_release.yaml\n']);
+    expect(io.out).toEqual(['docs/developer/CommitConventions.md is up to date with release.yaml\n']);
     expect(io.err).toEqual(['warning: translated legacy config\n']);
     expect(io.codes).toEqual([0]);
   });
@@ -161,7 +158,7 @@ describe('CLI controller handlers', () => {
     const check = {
       status: 'drift',
       path: 'docs/developer/CommitConventions.md',
-      configPath: 'atomi_release.yaml',
+      configPath: 'release.yaml',
       expected: 'generated\n',
       actual: 'hand edited\n',
       diff: '--- expected\n+++ actual\n@@ -1,1 +1,1 @@\n-generated\n+hand edited',
@@ -169,10 +166,7 @@ describe('CLI controller handlers', () => {
     };
 
     // Act
-    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle(
-      'atomi_release.yaml',
-      true,
-    );
+    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle('release.yaml', true);
 
     // Assert — the check exists to fail a CI job, so nothing goes to stdout.
     expect(io.out).toEqual([]);
@@ -190,7 +184,7 @@ describe('CLI controller handlers', () => {
     const check = {
       status: 'missing',
       path: 'docs/developer/CommitConventions.md',
-      configPath: 'atomi_release.yaml',
+      configPath: 'release.yaml',
       expected: 'generated\n',
       actual: null,
       diff: '',
@@ -198,10 +192,7 @@ describe('CLI controller handlers', () => {
     };
 
     // Act
-    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle(
-      'atomi_release.yaml',
-      true,
-    );
+    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle('release.yaml', true);
 
     // Assert
     expect(io.out).toEqual([]);
@@ -221,7 +212,7 @@ describe('CLI controller handlers', () => {
         },
       }),
       io,
-    ).handle('atomi_release.yaml', true);
+    ).handle('release.yaml', true);
 
     // Assert — "I could not look" must not render as "it is clean".
     expect(io.out).toEqual([]);
@@ -247,12 +238,12 @@ describe('CLI controller handlers', () => {
     expect(dryRun.codes).toEqual([0]);
 
     const live = captureIo();
-    await new ReleaseController(releases({ release: async () => PREVIEW }), live).handle(false, 'atomi_release.yaml');
+    await new ReleaseController(releases({ release: async () => PREVIEW }), live).handle(false, 'release.yaml');
     expect(live.out).toEqual(['released 1.0.0\n']);
     expect(live.codes).toEqual([0]);
 
     const none = captureIo();
-    await new ReleaseController(releases({ release: async () => null }), none).handle(false, 'atomi_release.yaml');
+    await new ReleaseController(releases({ release: async () => null }), none).handle(false, 'release.yaml');
     expect(none.out).toEqual(['no release necessary\n']);
     expect(none.codes).toEqual([0]);
 
@@ -264,7 +255,7 @@ describe('CLI controller handlers', () => {
         },
       }),
       failure,
-    ).handle(false, 'atomi_release.yaml');
+    ).handle(false, 'release.yaml');
     expect(failure.err).toEqual(['release failed\n']);
     expect(failure.codes).toEqual([1]);
   });
@@ -293,7 +284,7 @@ describe('CLI controller handlers', () => {
         },
       }),
       failure,
-    ).handle('atomi_release.yaml');
+    ).handle('release.yaml');
     expect(failure.err).toEqual(['migration failed\n']);
     expect(failure.codes).toEqual([1]);
   });
@@ -365,10 +356,10 @@ describe('bump controller', () => {
 
     // Act — no entries configured: say so rather than print an empty success.
     const empty = captureIo();
-    await new BumpController(releases({ bump: async () => [] }), empty).handle('2.5.0', 'atomi_release.yaml');
+    await new BumpController(releases({ bump: async () => [] }), empty).handle('2.5.0', 'release.yaml');
 
     // Assert
-    expect(empty.out).toEqual(['no bump entries configured in atomi_release.yaml\n']);
+    expect(empty.out).toEqual(['no bump entries configured in release.yaml\n']);
     expect(empty.codes).toEqual([0]);
 
     // Act — a refusal is surfaced as an error with a non-zero exit.
@@ -380,7 +371,7 @@ describe('bump controller', () => {
         },
       }),
       failure,
-    ).handle('2.5.0', 'atomi_release.yaml');
+    ).handle('2.5.0', 'release.yaml');
 
     // Assert
     expect(failure.err).toEqual(['VERSION declares no version line\n']);

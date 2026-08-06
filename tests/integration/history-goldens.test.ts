@@ -34,6 +34,11 @@ describe('real-history goldens', () => {
     it(`should reproduce ${fixture.name} version and notes bytes`, async () => {
       // Arrange
       const root = await materialize(fixture.name, fixture.sha);
+      // These fixtures materialise OTHER repositories at real shas, and their
+      // configuration is still named atomi_release.yaml. The v2 rename moved THIS
+      // tool's default, not their trees, so the captured name is passed explicitly
+      // rather than renamed here — which would assert a migration that has not
+      // happened.
       const config = (await new YamlConfigRepository(new BunFileSystem(root)).load('atomi_release.yaml')).config;
       const git = new GitCli(root);
       const versions = new VersionService();

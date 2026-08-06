@@ -1,4 +1,5 @@
 import type { RawCommit } from '../commits/model';
+import { DEFAULT_CONFIG_PATH } from '../config/paths';
 import type { ReleaserConfig } from '../config/model';
 import { ReleaseError, ReleaserError } from '../errors';
 import { bumpPath, bumpPreset } from './bump-presets';
@@ -23,7 +24,6 @@ export interface ReleasePreview {
 
 const LOCK_FILES = ['bun.lock', 'bun.lockb', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock'] as const;
 const SKIP_CI = /\[(?:skip ci|ci skip)\]/i;
-const DEFAULT_CONFIG_PATH = 'atomi_release.yaml';
 
 /**
  * `match` — the document on disk is byte-identical to what the configuration
@@ -200,7 +200,7 @@ export class ReleaseService {
     return this.writeBumps(loaded.config, version);
   }
 
-  async preview(configPath = 'atomi_release.yaml'): Promise<ReleasePreview | null> {
+  async preview(configPath = DEFAULT_CONFIG_PATH): Promise<ReleasePreview | null> {
     const loaded = await this.configs.load(configPath);
     const branch = await this.git.currentBranch();
     assertAllowedBranch(loaded.config, branch);
@@ -234,7 +234,7 @@ export class ReleaseService {
     };
   }
 
-  async release(configPath = 'atomi_release.yaml', dryRun = false): Promise<ReleasePreview | null> {
+  async release(configPath = DEFAULT_CONFIG_PATH, dryRun = false): Promise<ReleasePreview | null> {
     // Arm 1, before anything is read, computed or written: the repository must
     // hold no version tag that HEAD cannot reach, because the next version is
     // computed from reachable tags only and could land on one of them.
@@ -328,7 +328,7 @@ export class ReleaseService {
     return preview;
   }
 
-  async writeConventions(configPath = 'atomi_release.yaml'): Promise<LoadedConfig> {
+  async writeConventions(configPath = DEFAULT_CONFIG_PATH): Promise<LoadedConfig> {
     const loaded = await this.configs.load(configPath);
     await this.files.writeAtomic(loaded.config.conventions.path, this.conventions.render(loaded.config));
     return loaded;
@@ -347,7 +347,7 @@ export class ReleaseService {
    * throws rather than reporting a match — "I could not look" and "I looked and
    * it is clean" are different verdicts.
    */
-  async checkConventions(configPath = 'atomi_release.yaml'): Promise<ConventionsCheck> {
+  async checkConventions(configPath = DEFAULT_CONFIG_PATH): Promise<ConventionsCheck> {
     const loaded = await this.configs.load(configPath);
     const expected = this.conventions.render(loaded.config);
     const path = loaded.config.conventions.path;

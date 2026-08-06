@@ -14,7 +14,7 @@ export class MigrateController {
     program
       .command('migrate')
       .description('rewrite a legacy configuration as schemaVersion 2')
-      .option('-c, --config <path>', 'release configuration path', 'atomi_release.yaml')
+      .option('-c, --config <path>', 'release configuration path', 'release.yaml')
       .action((options: { config: string }) => this.handle(options.config));
   }
 

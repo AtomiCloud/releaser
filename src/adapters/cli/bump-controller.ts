@@ -18,7 +18,7 @@ export class BumpController {
       // bump nothing — a false green by construction rather than by accident.
       .argument('<version>', 'version to stamp into the configured files')
       .description('stamp the configured version files without releasing')
-      .option('-c, --config <path>', 'release configuration path', 'atomi_release.yaml')
+      .option('-c, --config <path>', 'release configuration path', 'release.yaml')
       .action((version: string, options: { config: string }) => this.handle(version, options.config));
   }
 

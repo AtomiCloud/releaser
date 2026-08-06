@@ -14,7 +14,7 @@ export class ReleaseController {
       .command('release')
       .description('calculate and perform a release')
       .option('--dry-run', 'print the next version and notes without side effects')
-      .option('-c, --config <path>', 'release configuration path', 'atomi_release.yaml')
+      .option('-c, --config <path>', 'release configuration path', 'release.yaml')
       .action((options: { dryRun?: boolean; config: string }) => this.handle(options.dryRun === true, options.config));
   }
 

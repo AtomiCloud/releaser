@@ -23,7 +23,7 @@ ci: add workflow cache validation
 
 ## Commit Types
 
-Commit types and scopes are defined in `atomi_release.yaml`. The workspace
+Commit types and scopes are defined in `release.yaml`. The workspace
 baseline uses the unified D3 vocabulary:
 
 ```text
@@ -38,7 +38,7 @@ amend, build, chore, ci, config, dep, docs, feat, fix, perf, refactor, style, te
 
 ## Finding Your Commit Conventions
 
-Each project generates `CommitConventions.md` from its `atomi_release.yaml` configuration using the `releaser` tool. This file contains:
+Each project generates `CommitConventions.md` from its `release.yaml` configuration using the `releaser` tool. This file contains:
 
 1. All available commit types
 2. Available scopes for each type
@@ -56,7 +56,7 @@ cat docs/developer/CommitConventions.md
 releaser conventions
 ```
 
-Before step 2p, treat `atomi_release.yaml` as authoritative. The checked-in
+Before step 2p, treat `release.yaml` as authoritative. The checked-in
 generated document carries an explicit bootstrap notice, and the repository
 does not claim that the `releaser` command is available yet.
 
@@ -69,7 +69,7 @@ Different commit types trigger different release levels:
 - **patch**: Bug fixes
 - **no-release**: Changes that don't trigger a release
 
-The specific behavior is defined in your project's `atomi_release.yaml` and reflected in `CommitConventions.md`.
+The specific behavior is defined in your project's `release.yaml` and reflected in `CommitConventions.md`.
 
 ## Release-relevant types
 
@@ -102,7 +102,7 @@ BREAKING CHANGE: This changes the API contract
 | Aspect            | Pattern                                      |
 | ----------------- | -------------------------------------------- |
 | **Format**        | `type(scope): description`                   |
-| **Configuration** | `atomi_release.yaml`                         |
+| **Configuration** | `release.yaml`                               |
 | **Reference**     | `docs/developer/CommitConventions.md`        |
 | **Release**       | Type-specific (major/minor/patch/no-release) |
 | **Breaking**      | Add `!` or `BREAKING CHANGE:` footer         |

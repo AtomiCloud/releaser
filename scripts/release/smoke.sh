@@ -22,7 +22,7 @@ printf '%s\n' "${help}"
 msg_file="$(mktemp)"
 trap 'rm -f "${msg_file}"' EXIT
 printf '%s\n' 'feat: add a release capability' >"${msg_file}"
-"${bin}" lint-commit "${msg_file}" -c atomi_release.yaml
+"${bin}" lint-commit "${msg_file}" -c release.yaml
 echo "✅ lint-commit ok"
 
 echo "✅ smoke ok: ${bin}"

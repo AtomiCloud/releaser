@@ -42,7 +42,7 @@ describe('frozen configuration fixtures', () => {
 
   it('should satisfy the lint parity and expansion case table from the canonical vocabulary', async () => {
     // Arrange
-    const config = (await new YamlConfigRepository(new BunFileSystem(process.cwd())).load('atomi_release.yaml')).config;
+    const config = (await new YamlConfigRepository(new BunFileSystem(process.cwd())).load('release.yaml')).config;
     const subject = new CommitLinter();
 
     // Act / Assert
@@ -60,7 +60,7 @@ describe('frozen configuration fixtures', () => {
 
   it('should render the reviewed convention golden byte-for-byte', async () => {
     // Arrange
-    const config = (await new YamlConfigRepository(new BunFileSystem(process.cwd())).load('atomi_release.yaml')).config;
+    const config = (await new YamlConfigRepository(new BunFileSystem(process.cwd())).load('release.yaml')).config;
     const expected = await Bun.file('tests/fixtures/golden/conventions.md').text();
 
     // Act

@@ -13,7 +13,7 @@ export class ChangelogController {
     program
       .command('changelog')
       .description('print pending release notes')
-      .option('-c, --config <path>', 'release configuration path', 'atomi_release.yaml')
+      .option('-c, --config <path>', 'release configuration path', 'release.yaml')
       .action((options: { config: string }) => this.handle(options.config));
   }
 
