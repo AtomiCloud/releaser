@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test';
 import type { ReleaserConfig } from '../../../src/lib/config/model';
-import { ReleaseError } from '../../../src/lib/errors';
+import { ConfigError, ReleaseError } from '../../../src/lib/errors';
 import { ConventionsService } from '../../../src/lib/release/conventions-service';
 import { HookTemplate } from '../../../src/lib/release/hook-template';
 import { NotesService } from '../../../src/lib/release/notes-service';
-import { ReleaseService, userMessage } from '../../../src/lib/release/release-service';
+import { describeConventionsCheck, ReleaseService, userMessage } from '../../../src/lib/release/release-service';
 import { VersionService } from '../../../src/lib/release/version-service';
 import {
   FakeClock,
@@ -267,5 +267,176 @@ describe('release service', () => {
     expect(userMessage(new ReleaseError('release failed', 'test'))).toBe('release failed');
     expect(userMessage(new Error('ordinary failure'))).toBe('ordinary failure');
     expect(userMessage({ reason: 'unknown' })).toBe('[object Object]');
+  });
+});
+
+/**
+ * D9 — releaser-generated documents are regenerate-only, so a hand-edit is a
+ * violation the check must detect. Arm names match the A-series carried over
+ * from the semantic-generator port plan; the same arms run black-box against
+ * the built CLI in the SIT tier.
+ */
+describe('conventions check (D9)', () => {
+  const DOC = TEST_CONFIG.conventions.path;
+
+  async function generated(): Promise<{ release: ReturnType<typeof fixture>; body: string }> {
+    const release = fixture();
+    await release.subject.writeConventions();
+    const body = release.files.values.get(DOC);
+    if (body === undefined) throw new Error('fixture did not generate a document');
+    return { release, body };
+  }
+
+  it('A1: should report a match on the bytes the generator itself wrote', async () => {
+    // Arrange
+    const { release } = await generated();
+
+    // Act
+    const actual = await release.subject.checkConventions();
+
+    // Assert
+    expect(actual.status).toBe('match');
+    expect(actual.diff).toBe('');
+    expect(actual.path).toBe(DOC);
+  });
+
+  it('A2: should report drift when the document body is edited', async () => {
+    // Arrange
+    const { release, body } = await generated();
+    release.files.values.set(DOC, body.replace('## Types', '## Types (hand-edited)'));
+
+    // Act
+    const actual = await release.subject.checkConventions();
+
+    // Assert
+    expect(actual.status).toBe('drift');
+    expect(actual.diff).toContain('## Types (hand-edited)');
+  });
+
+  it('A3: should report drift on a single appended whitespace byte', async () => {
+    // Arrange
+    const { release, body } = await generated();
+    release.files.values.set(DOC, `${body} `);
+
+    // Act
+    const actual = await release.subject.checkConventions();
+
+    // Assert
+    expect(actual.status).toBe('drift');
+    expect(actual.diff).not.toBe('');
+  });
+
+  it('A4: should report a missing document rather than a match', async () => {
+    // Arrange
+    const release = fixture();
+
+    // Act
+    const actual = await release.subject.checkConventions();
+
+    // Assert
+    expect(actual.status).toBe('missing');
+    expect(actual.actual).toBeNull();
+    expect(actual.diff).toBe('');
+  });
+
+  it('A5: should report drift when the configuration moves and the document does not', async () => {
+    // Arrange — the document is generated, then the config gains a commit type.
+    const { body } = await generated();
+    const moved = fixture({
+      ...TEST_CONFIG,
+      types: [
+        ...TEST_CONFIG.types,
+        { type: 'perf', desc: 'Performance', scopes: { default: { desc: 'Perf', release: 'patch' } } },
+      ],
+    });
+    moved.files.values.set(DOC, body);
+
+    // Act
+    const actual = await moved.subject.checkConventions();
+
+    // Assert
+    expect(actual.status).toBe('drift');
+    expect(actual.diff).toContain('perf');
+  });
+
+  it('A6: should stay green after a byte-identical rewrite', async () => {
+    // Arrange — proves a red arm reacts to the CONTENT, not merely to a write.
+    const { release } = await generated();
+    await release.subject.writeConventions();
+
+    // Act
+    const actual = await release.subject.checkConventions();
+
+    // Assert
+    expect(actual.status).toBe('match');
+  });
+
+  it('A7: should not modify the document it judges', async () => {
+    // Arrange
+    const { release, body } = await generated();
+    const drifted = `${body}trailing junk\n`;
+    release.files.values.set(DOC, drifted);
+
+    // Act
+    const actual = await release.subject.checkConventions();
+
+    // Assert — a check that repaired what it judged could never fail a CI job.
+    expect(actual.status).toBe('drift');
+    expect(release.files.values.get(DOC)).toBe(drifted);
+  });
+
+  it('A8: should surface an unreadable configuration as a failure, not a match', async () => {
+    // Arrange
+    const release = fixture();
+    const broken = new ReleaseService(
+      {
+        load: async () => {
+          throw new ConfigError('failed to read YAML configuration "nope.yaml": file not found: nope.yaml');
+        },
+        writeCanonical: async () => undefined,
+      },
+      release.files,
+      release.git,
+      release.hooks,
+      release.github,
+      new VersionService(),
+      new NotesService(),
+      new ConventionsService(),
+      new HookTemplate(),
+      new FakeClock(),
+    );
+
+    // Act & Assert — "I could not look" must never render as "it is clean".
+    await expect(broken.checkConventions('nope.yaml')).rejects.toThrow('failed to read YAML configuration');
+  });
+
+  it('should name the rule and the remedy in every verdict', async () => {
+    // Arrange
+    const { release, body } = await generated();
+
+    // Act
+    const match = describeConventionsCheck(await release.subject.checkConventions());
+    const missingCheck = await fixture().subject.checkConventions();
+    release.files.values.set(DOC, `${body}drift\n`);
+    const drift = describeConventionsCheck(await release.subject.checkConventions());
+
+    // Assert
+    expect(match).toContain('is up to date with');
+    expect(describeConventionsCheck(missingCheck)).toContain('regenerate-only');
+    expect(describeConventionsCheck(missingCheck)).toContain('`releaser conventions`');
+    expect(drift).toContain('D9');
+    expect(drift).toContain('Hand-edits are not permitted');
+    expect(drift).toContain('+drift');
+  });
+
+  it('should point the remedy at a non-default configuration path', async () => {
+    // Arrange
+    const release = fixture();
+
+    // Act
+    const actual = describeConventionsCheck(await release.subject.checkConventions('custom.yaml'));
+
+    // Assert
+    expect(actual).toContain('`releaser conventions -c custom.yaml`');
   });
 });

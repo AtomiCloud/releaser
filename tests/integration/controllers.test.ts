@@ -129,6 +129,96 @@ describe('CLI controller handlers', () => {
     expect(failure.codes).toEqual([1]);
   });
 
+  it('should report a matching conventions document on stdout with a zero exit code', async () => {
+    // Arrange
+    const io = captureIo();
+    const check = {
+      status: 'match',
+      path: 'docs/developer/CommitConventions.md',
+      configPath: 'atomi_release.yaml',
+      expected: 'body',
+      actual: 'body',
+      diff: '',
+      warnings: ['translated legacy config'],
+    };
+
+    // Act
+    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle('atomi_release.yaml', true);
+
+    // Assert
+    expect(io.out).toEqual(['docs/developer/CommitConventions.md is up to date with atomi_release.yaml\n']);
+    expect(io.err).toEqual(['warning: translated legacy config\n']);
+    expect(io.codes).toEqual([0]);
+  });
+
+  it('should fail the conventions check on drift, naming D9 and the remedy on stderr', async () => {
+    // Arrange
+    const io = captureIo();
+    const check = {
+      status: 'drift',
+      path: 'docs/developer/CommitConventions.md',
+      configPath: 'atomi_release.yaml',
+      expected: 'generated\n',
+      actual: 'hand edited\n',
+      diff: '--- expected\n+++ actual\n@@ -1,1 +1,1 @@\n-generated\n+hand edited',
+      warnings: [],
+    };
+
+    // Act
+    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle('atomi_release.yaml', true);
+
+    // Assert — the check exists to fail a CI job, so nothing goes to stdout.
+    expect(io.out).toEqual([]);
+    expect(io.codes).toEqual([1]);
+    const reported = io.err.join('');
+    expect(reported).toContain('D9: releaser-generated documents are regenerate-only');
+    expect(reported).toContain('Hand-edits are not permitted');
+    expect(reported).toContain('`releaser conventions`');
+    expect(reported).toContain('+hand edited');
+  });
+
+  it('should fail the conventions check when the document is missing', async () => {
+    // Arrange
+    const io = captureIo();
+    const check = {
+      status: 'missing',
+      path: 'docs/developer/CommitConventions.md',
+      configPath: 'atomi_release.yaml',
+      expected: 'generated\n',
+      actual: null,
+      diff: '',
+      warnings: [],
+    };
+
+    // Act
+    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle('atomi_release.yaml', true);
+
+    // Assert
+    expect(io.out).toEqual([]);
+    expect(io.codes).toEqual([1]);
+    expect(io.err.join('')).toContain('is missing');
+  });
+
+  it('should surface an unreadable configuration from the conventions check as a failure', async () => {
+    // Arrange
+    const io = captureIo();
+
+    // Act
+    await new ConventionsController(
+      releases({
+        checkConventions: async () => {
+          throw new Error('failed to read YAML configuration "nope.yaml": file not found: nope.yaml');
+        },
+      }),
+      io,
+    ).handle('atomi_release.yaml', true);
+
+    // Assert — "I could not look" must not render as "it is clean".
+    expect(io.out).toEqual([]);
+    expect(io.codes).toEqual([1]);
+    expect(io.err.join('')).toContain('failed to read YAML configuration');
+  });
+
   it('should handle release dry-run, live, no-release, and error results', async () => {
     const calls: Array<readonly [string, boolean]> = [];
     const dryRun = captureIo();
