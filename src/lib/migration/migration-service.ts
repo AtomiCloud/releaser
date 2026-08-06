@@ -33,7 +33,7 @@ export class MigrationService {
       }
     }
     const lines = [
-      loaded.sourceVersion === 2 ? 'already v2' : 'migrated atomi_release.yaml to schemaVersion 2',
+      loaded.sourceVersion === 2 ? 'already v2' : `migrated ${configPath} to schemaVersion 2`,
       `removed legacy files: ${removed.length === 0 ? 'none' : removed.join(', ')}`,
       ...(loaded.warnings.length === 0 ? [] : ['normalizations:', ...loaded.warnings.map(warning => `- ${warning}`)]),
       'consumer checklist:',

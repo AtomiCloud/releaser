@@ -15,6 +15,10 @@ unsupported lifecycle keys fail with guidance to use explicit prepare/success
 hooks. Migration writes v2 atomically before deleting `.gitlint` and generated
 `.releaserc.yaml` files.
 
+Every subcommand selects its configuration the same way: `-c, --config <path>`,
+defaulting to `atomi_release.yaml`. The path a subcommand is given is the path it
+reads, and for `migrate` it is also the path rewritten in place.
+
 ## Release calculation
 
 The greatest stable reachable tag matching `tagFormat` is the baseline. Parsed

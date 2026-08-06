@@ -32,13 +32,23 @@ function migration(methods: object): MigrationService {
 
 describe('CLI controller handlers', () => {
   it('should handle changelog success, no-release, and error results', async () => {
+    const calls: string[] = [];
     const success = captureIo();
-    await new ChangelogController(releases({ preview: async () => PREVIEW }), success).handle();
+    await new ChangelogController(
+      releases({
+        preview: async (path: string) => {
+          calls.push(path);
+          return PREVIEW;
+        },
+      }),
+      success,
+    ).handle('custom.yaml');
+    expect(calls).toEqual(['custom.yaml']);
     expect(success.out).toEqual(['## 1.0.0\n']);
     expect(success.codes).toEqual([0]);
 
     const none = captureIo();
-    await new ChangelogController(releases({ preview: async () => null }), none).handle();
+    await new ChangelogController(releases({ preview: async () => null }), none).handle('atomi_release.yaml');
     expect(none.out).toEqual([]);
     expect(none.codes).toEqual([0]);
 
@@ -50,19 +60,29 @@ describe('CLI controller handlers', () => {
         },
       }),
       failure,
-    ).handle();
+    ).handle('atomi_release.yaml');
     expect(failure.err).toEqual(['cannot calculate notes\n']);
     expect(failure.codes).toEqual([1]);
   });
 
   it('should handle next-version success, no-release, and error results', async () => {
+    const calls: string[] = [];
     const success = captureIo();
-    await new NextController(releases({ preview: async () => PREVIEW }), success).handle();
+    await new NextController(
+      releases({
+        preview: async (path: string) => {
+          calls.push(path);
+          return PREVIEW;
+        },
+      }),
+      success,
+    ).handle('custom.yaml');
+    expect(calls).toEqual(['custom.yaml']);
     expect(success.out).toEqual(['1.0.0\n']);
     expect(success.codes).toEqual([0]);
 
     const none = captureIo();
-    await new NextController(releases({ preview: async () => null }), none).handle();
+    await new NextController(releases({ preview: async () => null }), none).handle('atomi_release.yaml');
     expect(none.err).toEqual(['no release necessary\n']);
     expect(none.codes).toEqual([2]);
 
@@ -74,17 +94,24 @@ describe('CLI controller handlers', () => {
         },
       }),
       failure,
-    ).handle();
+    ).handle('atomi_release.yaml');
     expect(failure.err).toEqual(['cannot calculate version\n']);
     expect(failure.codes).toEqual([1]);
   });
 
   it('should handle conventions warnings and errors', async () => {
+    const calls: string[] = [];
     const success = captureIo();
     await new ConventionsController(
-      releases({ writeConventions: async () => ({ ...loadedConfig(), warnings: ['translated legacy config'] }) }),
+      releases({
+        writeConventions: async (path: string) => {
+          calls.push(path);
+          return { ...loadedConfig(), warnings: ['translated legacy config'] };
+        },
+      }),
       success,
-    ).handle();
+    ).handle('custom.yaml');
+    expect(calls).toEqual(['custom.yaml']);
     expect(success.out).toEqual(['wrote docs/developer/CommitConventions.md\n']);
     expect(success.err).toEqual(['warning: translated legacy config\n']);
     expect(success.codes).toEqual([0]);
@@ -97,7 +124,7 @@ describe('CLI controller handlers', () => {
         },
       }),
       failure,
-    ).handle();
+    ).handle('atomi_release.yaml');
     expect(failure.err).toEqual(['cannot write conventions\n']);
     expect(failure.codes).toEqual([1]);
   });
@@ -143,8 +170,18 @@ describe('CLI controller handlers', () => {
   });
 
   it('should handle migration success and errors', async () => {
+    const calls: string[] = [];
     const success = captureIo();
-    await new MigrateController(migration({ migrate: async () => ({ output: 'migrated\n' }) }), success).handle();
+    await new MigrateController(
+      migration({
+        migrate: async (path: string) => {
+          calls.push(path);
+          return { output: 'migrated\n' };
+        },
+      }),
+      success,
+    ).handle('custom.yaml');
+    expect(calls).toEqual(['custom.yaml']);
     expect(success.out).toEqual(['migrated\n']);
     expect(success.codes).toEqual([0]);
 
@@ -156,7 +193,7 @@ describe('CLI controller handlers', () => {
         },
       }),
       failure,
-    ).handle();
+    ).handle('atomi_release.yaml');
     expect(failure.err).toEqual(['migration failed\n']);
     expect(failure.codes).toEqual([1]);
   });

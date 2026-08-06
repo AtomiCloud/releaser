@@ -13,12 +13,13 @@ export class NextController {
     program
       .command('next')
       .description('print the next release version')
-      .action(() => this.handle());
+      .option('-c, --config <path>', 'release configuration path', 'atomi_release.yaml')
+      .action((options: { config: string }) => this.handle(options.config));
   }
 
-  async handle(): Promise<void> {
+  async handle(configPath: string): Promise<void> {
     try {
-      const preview = await this.releases.preview();
+      const preview = await this.releases.preview(configPath);
       if (preview === null) {
         this.io.writeError('no release necessary\n');
         this.io.setExitCode(EXIT_NO_RELEASE);

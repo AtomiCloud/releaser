@@ -20,16 +20,19 @@ generated `.releaserc.yaml` split with one strict configuration.
 ```text
 releaser release [--dry-run] [-c <path>]
 releaser lint-commit <msgfile> [-c <path>]
-releaser next
-releaser changelog
-releaser conventions
-releaser migrate
+releaser next [-c <path>]
+releaser changelog [-c <path>]
+releaser conventions [-c <path>]
+releaser migrate [-c <path>]
 ```
+
+Every subcommand takes `-c, --config <path>` and defaults to
+`atomi_release.yaml`.
 
 Only `release` without `--dry-run` mutates Git or publishes. `next`,
 `changelog`, and dry-run release are previews; `conventions` replaces only its
-configured document; `migrate` atomically rewrites v1 configuration and removes
-legacy generated files.
+configured document; `migrate` atomically rewrites the named configuration in
+place and removes legacy generated files.
 
 ## Development
 
