@@ -1,6 +1,7 @@
 import type { RawCommit } from '../commits/model';
 import type { ReleaserConfig } from '../config/model';
 import { ReleaseError, ReleaserError } from '../errors';
+import { bumpPath, bumpPreset } from './bump-presets';
 import type { ConventionsService } from './conventions-service';
 import type { HookTemplate } from './hook-template';
 import { unifiedDiff } from './line-diff';
@@ -232,6 +233,22 @@ export class ReleaseService {
         preview.config.release.changelog.path,
         prependNotes(current, preview.config.release.changelog.title, preview.notes),
       );
+    });
+
+    // The releaser owns the version number in every runtime it releases, so the
+    // bump is a write phase of the release rather than a separate capability a
+    // template has to remember to invoke. Every file is read and transformed
+    // BEFORE any is written, so a failure anywhere leaves the tree untouched
+    // rather than half-bumped.
+    await runPhase('write:versions', async () => {
+      const pending: { path: string; content: string }[] = [];
+      for (const entry of preview.config.release.bumps) {
+        const path = bumpPath(entry.type, entry.file);
+        const current = await this.files.readTextIfExists(path);
+        if (current === null) throw new ReleaseError(`bump target ${path} does not exist`, 'write:versions');
+        pending.push({ path, content: bumpPreset(entry.type).apply(path, current, preview.version).content });
+      }
+      for (const write of pending) await this.files.writeAtomic(write.path, write.content);
     });
 
     for (const hook of preview.config.release.hooks.prepare.filter(candidate => candidate.phase === 'afterWrite')) {

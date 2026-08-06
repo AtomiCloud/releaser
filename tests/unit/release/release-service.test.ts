@@ -462,3 +462,93 @@ describe('conventions check (D9)', () => {
     expect(quoted).toContain("odd'\\''name.yaml");
   });
 });
+
+describe('version bumps (write:versions)', () => {
+  /** A release whose configuration owns one or more version files. */
+  function bumpFixture(bumps: ReleaserConfig['release']['bumps'], seed: Record<string, string>) {
+    const config = {
+      ...TEST_CONFIG,
+      release: { ...TEST_CONFIG.release, bumps, commit: { ...TEST_CONFIG.release.commit, assets: ['**'] } },
+    };
+    const harness = fixture(config);
+    for (const [path, content] of Object.entries(seed)) harness.files.values.set(path, content);
+    harness.git.changed = Object.keys(seed);
+    return harness;
+  }
+
+  it('should bump a plain-text VERSION during the release, not merely on disk beforehand', async () => {
+    // Arrange — the fourth preset, at its default root path.
+    const { subject, files } = bumpFixture([{ type: 'plain-version', file: null, reason: null }], {
+      VERSION: '0.1.0\n',
+    });
+
+    // Act
+    await subject.release();
+
+    // Assert — the release wrote the computed version, and only that.
+    expect(await files.readText('VERSION')).toBe('1.0.0\n');
+  });
+
+  it('should bump a NON-ROOT overridden path — the shape dart-lib actually needs', async () => {
+    // Arrange — dart-lib's pubspec is at packages/<name>/, not the repository
+    // root. A root-only arm would prove the half that was never in doubt.
+    const { subject, files } = bumpFixture(
+      [{ type: 'dart-version', file: 'packages/diene_dart_lib/pubspec.yaml', reason: 'monorepo package layout' }],
+      { 'packages/diene_dart_lib/pubspec.yaml': 'name: diene\nversion: 0.1.0\n' },
+    );
+
+    // Act
+    await subject.release();
+
+    // Assert
+    expect(await files.readText('packages/diene_dart_lib/pubspec.yaml')).toBe('name: diene\nversion: 1.0.0\n');
+  });
+
+  it('should bump several files in one release', async () => {
+    // Arrange
+    const { subject, files } = bumpFixture(
+      [
+        { type: 'plain-version', file: null, reason: null },
+        { type: 'node-version', file: null, reason: null },
+      ],
+      { VERSION: '0.1.0\n', 'package.json': '{\n  "version": "0.1.0"\n}\n' },
+    );
+
+    // Act
+    await subject.release();
+
+    // Assert
+    expect(await files.readText('VERSION')).toBe('1.0.0\n');
+    expect(await files.readText('package.json')).toBe('{\n  "version": "1.0.0"\n}\n');
+  });
+
+  it('should REFUSE when a bump target does not exist rather than create it', async () => {
+    // Arrange
+    const { subject } = bumpFixture([{ type: 'plain-version', file: null, reason: null }], {});
+
+    // Act
+    const act = subject.release();
+
+    // Assert
+    await expect(act).rejects.toThrow(/bump target VERSION does not exist/);
+  });
+
+  it('should write NOTHING when any one bump fails — all or nothing', async () => {
+    // Arrange — the first target is fine, the second declares no version. Every
+    // file is transformed before any is written, so a late failure must not
+    // leave an earlier file already bumped.
+    const { subject, files } = bumpFixture(
+      [
+        { type: 'plain-version', file: null, reason: null },
+        { type: 'node-version', file: null, reason: null },
+      ],
+      { VERSION: '0.1.0\n', 'package.json': '{\n  "name": "thing"\n}\n' },
+    );
+
+    // Act
+    await expect(subject.release()).rejects.toThrow(/declares no/);
+
+    // Assert — the good file is untouched, not half-bumped.
+    expect(await files.readText('VERSION')).toBe('0.1.0\n');
+  });
+});
