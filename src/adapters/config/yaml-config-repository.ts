@@ -1,11 +1,9 @@
 import type { ReleaserConfig } from '../../lib/config/model';
 import { detectSchemaVersion, parseCanonicalV2 } from '../../lib/config/schema';
 import { translateV1 } from '../../lib/config/translator';
+import { DEFAULT_CONFIG_PATH, LEGACY_CONFIG_PATH } from '../../lib/config/paths';
 import { ConfigError } from '../../lib/errors';
 import type { IConfigRepository, IFileSystem, LoadedConfig } from '../../lib/release/ports';
-
-/** The pre-v2 configuration name, named only to tell a user what to rename. */
-const LEGACY_CONFIG_PATH = 'atomi_release.yaml';
 
 export class YamlConfigRepository implements IConfigRepository {
   constructor(private readonly files: IFileSystem) {}
@@ -16,7 +14,15 @@ export class YamlConfigRepository implements IConfigRepository {
     // A silent fallback would leave two live names indefinitely and nobody would
     // ever finish the migration. So the old name is not read — it is NAMED at the
     // point of failure, where the person who has to act is already looking.
-    if (!(await this.files.exists(path)) && (await this.files.exists(LEGACY_CONFIG_PATH))) {
+    // Only when the DEFAULT was requested. Someone who passed `-c` named a path
+    // deliberately, and a stale legacy file elsewhere in the tree says nothing
+    // about it — telling them to rename it to their own custom path would be a
+    // confident instruction to do the wrong thing.
+    if (
+      path === DEFAULT_CONFIG_PATH &&
+      !(await this.files.exists(path)) &&
+      (await this.files.exists(LEGACY_CONFIG_PATH))
+    ) {
       throw new ConfigError(
         `${path} not found, but ${LEGACY_CONFIG_PATH} exists. This tool formerly read ` +
           `${LEGACY_CONFIG_PATH}; rename it to ${path} (or pass -c ${LEGACY_CONFIG_PATH} to keep the old name).`,

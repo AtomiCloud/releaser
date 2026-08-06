@@ -1,4 +1,5 @@
 import type { RawCommit } from '../commits/model';
+import { DEFAULT_CONFIG_PATH } from '../config/paths';
 import type { ReleaserConfig } from '../config/model';
 import { ReleaseError, ReleaserError } from '../errors';
 import { bumpPath, bumpPreset } from './bump-presets';
@@ -23,7 +24,6 @@ export interface ReleasePreview {
 
 const LOCK_FILES = ['bun.lock', 'bun.lockb', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock'] as const;
 const SKIP_CI = /\[(?:skip ci|ci skip)\]/i;
-const DEFAULT_CONFIG_PATH = 'release.yaml';
 
 /**
  * `match` — the document on disk is byte-identical to what the configuration

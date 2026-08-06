@@ -109,3 +109,34 @@ describe('legacy config tombstone', () => {
     await expect(act).not.rejects.toThrow(/formerly read/);
   });
 });
+
+describe('legacy tombstone scope', () => {
+  it('should NOT misinstruct when a NON-default path is missing and the legacy file exists', async () => {
+    // Arrange — someone passed -c deliberately. A stale atomi_release.yaml
+    // elsewhere in the tree says nothing about the path they asked for, and
+    // telling them to rename it to their own custom path would be a confident
+    // instruction to do the wrong thing.
+    const cwd = await root();
+    await Bun.write(join(cwd, 'atomi_release.yaml'), 'schemaVersion: 2\n');
+    const subject = new YamlConfigRepository(new BunFileSystem(cwd));
+
+    // Act
+    const act = subject.load('profiles/custom.yaml');
+
+    // Assert — the ordinary missing-configuration error, naming THEIR path.
+    await expect(act).rejects.toThrow(/failed to read YAML configuration "profiles\/custom\.yaml"/);
+    await expect(act).rejects.not.toThrow(/formerly read/);
+    await expect(act).rejects.not.toThrow(/rename it to profiles/);
+  });
+
+  it('should still read an explicitly requested legacy config unchanged', async () => {
+    // Arrange — the tombstone must not break the documented escape hatch it
+    // itself offers: pass -c atomi_release.yaml to keep the old name.
+    const cwd = await root();
+    await Bun.write(join(cwd, 'atomi_release.yaml'), 'schemaVersion: 2\ntypes: []\n');
+    const subject = new YamlConfigRepository(new BunFileSystem(cwd));
+
+    // Act / Assert — it reaches the parser rather than the tombstone.
+    await expect(subject.load('atomi_release.yaml')).rejects.not.toThrow(/formerly read/);
+  });
+});
