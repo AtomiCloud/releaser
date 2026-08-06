@@ -174,7 +174,7 @@ pre-commit-lib.run {
       enable = true;
       name = "Release config schema";
       entry = validator "scripts/validate/release-config.sh schema";
-      files = "^atomi_release\\.yaml$";
+      files = "^release\\.yaml$";
       pass_filenames = false;
       language = "system";
     };
@@ -183,7 +183,7 @@ pre-commit-lib.run {
       enable = true;
       name = "Release type vocabulary";
       entry = validator "scripts/validate/release-config.sh types";
-      files = "^atomi_release\\.yaml$";
+      files = "^release\\.yaml$";
       pass_filenames = false;
       language = "system";
     };
@@ -218,7 +218,7 @@ pre-commit-lib.run {
     a-releaser-commit = {
       enable = true;
       name = "Conventional commit";
-      entry = "${packages.releaser}/bin/releaser lint-commit -c atomi_release.yaml";
+      entry = "${packages.releaser}/bin/releaser lint-commit -c release.yaml";
       stages = [ "commit-msg" ];
       pass_filenames = true;
       language = "system";

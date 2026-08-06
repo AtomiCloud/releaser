@@ -21,7 +21,7 @@ export class MigrationService {
     private readonly files: IFileSystem,
   ) {}
 
-  async migrate(configPath = 'atomi_release.yaml'): Promise<MigrationResult> {
+  async migrate(configPath = 'release.yaml'): Promise<MigrationResult> {
     const loaded = await this.configs.load(configPath);
     if (loaded.sourceVersion === 1) await this.configs.writeCanonical(configPath, loaded.config);
     const candidates = [...new Set([loaded.legacyGitlintPath, '.releaserc.yaml'])];

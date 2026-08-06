@@ -13,7 +13,7 @@ export class NextController {
     program
       .command('next')
       .description('print the next release version')
-      .option('-c, --config <path>', 'release configuration path', 'atomi_release.yaml')
+      .option('-c, --config <path>', 'release configuration path', 'release.yaml')
       .action((options: { config: string }) => this.handle(options.config));
   }
 

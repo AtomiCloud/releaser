@@ -27,7 +27,7 @@ releaser migrate [-c <path>]
 ```
 
 Every subcommand takes `-c, --config <path>` and defaults to
-`atomi_release.yaml`.
+`release.yaml`.
 
 Only `release` without `--dry-run` mutates Git or publishes. `next`,
 `changelog`, and dry-run release are previews; `conventions` replaces only its
@@ -67,5 +67,5 @@ Shared engineering standards live under [docs/standards/](docs/standards/).
 <!-- #### source: releaser -->
 
 The release vocabulary, lint rules, hooks, assets, and distribution ownership
-are defined in [atomi_release.yaml](atomi_release.yaml). No runtime path invokes a
+are defined in [release.yaml](release.yaml). No runtime path invokes a
 package manager or dynamically loads plugins.

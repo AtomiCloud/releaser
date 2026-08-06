@@ -55,13 +55,13 @@ describe('controller registration', () => {
       return [command.name(), option?.flags ?? null, option?.defaultValue ?? null] as const;
     });
     expect(configOptions).toEqual([
-      ['release', '-c, --config <path>', 'atomi_release.yaml'],
-      ['lint-commit', '-c, --config <path>', 'atomi_release.yaml'],
-      ['next', '-c, --config <path>', 'atomi_release.yaml'],
-      ['changelog', '-c, --config <path>', 'atomi_release.yaml'],
-      ['bump', '-c, --config <path>', 'atomi_release.yaml'],
-      ['conventions', '-c, --config <path>', 'atomi_release.yaml'],
-      ['migrate', '-c, --config <path>', 'atomi_release.yaml'],
+      ['release', '-c, --config <path>', 'release.yaml'],
+      ['lint-commit', '-c, --config <path>', 'release.yaml'],
+      ['next', '-c, --config <path>', 'release.yaml'],
+      ['changelog', '-c, --config <path>', 'release.yaml'],
+      ['bump', '-c, --config <path>', 'release.yaml'],
+      ['conventions', '-c, --config <path>', 'release.yaml'],
+      ['migrate', '-c, --config <path>', 'release.yaml'],
     ]);
   });
 });

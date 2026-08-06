@@ -62,7 +62,7 @@ describe('release service', () => {
     const before = new Map(files.values);
 
     // Act
-    const actual = await subject.release('atomi_release.yaml', true);
+    const actual = await subject.release('release.yaml', true);
 
     // Assert
     expect(actual?.version).toBe('1.0.0');
@@ -186,7 +186,7 @@ describe('release service', () => {
 
     // Act / Assert
     await expect(invalid.subject.preview()).rejects.toThrow('invalid tag ref');
-    await expect(invalid.subject.release('atomi_release.yaml', true)).rejects.toThrow('invalid tag ref');
+    await expect(invalid.subject.release('release.yaml', true)).rejects.toThrow('invalid tag ref');
     await expect(invalid.subject.release()).rejects.toThrow('invalid tag ref');
     expect(invalid.files.values).toEqual(before);
     expect(invalid.hooks.commands).toEqual([]);

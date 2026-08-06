@@ -61,9 +61,9 @@ release:
 }
 
 // --- both-configs discriminator fixtures -------------------------------------
-// Every -c sandbox holds BOTH release.yaml and atomi_release.yaml, and a marker
+// Every -c sandbox holds BOTH named-release.yaml and release.yaml, and a marker
 // exists in only the named one. An exit code cannot separate "read my config"
-// from "ignored my flag and found atomi_release.yaml anyway"; the marker can.
+// from "ignored my flag and found release.yaml anyway"; the marker can.
 const MARK = 'ZQMARKER';
 const DECOY = 'DECOYCONF';
 
@@ -145,12 +145,12 @@ async function markerRepository(schema: 'v1' | 'v2' = 'v2'): Promise<string> {
   const scratch = await scratchRepository();
   roots.push(scratch.root, scratch.remote);
   if (schema === 'v1') {
-    await Bun.write(join(scratch.root, 'release.yaml'), legacyV1(MARK, 'Named-Conventions.md', 'minor'));
-    await Bun.write(join(scratch.root, 'atomi_release.yaml'), legacyV1(DECOY, 'Decoy-Conventions.md', 'patch'));
+    await Bun.write(join(scratch.root, 'named-release.yaml'), legacyV1(MARK, 'Named-Conventions.md', 'minor'));
+    await Bun.write(join(scratch.root, 'release.yaml'), legacyV1(DECOY, 'Decoy-Conventions.md', 'patch'));
     await Bun.write(join(scratch.root, '.gitlint'), 'legacy\n');
   } else {
-    await Bun.write(join(scratch.root, 'release.yaml'), markerV2());
-    await Bun.write(join(scratch.root, 'atomi_release.yaml'), decoyV2());
+    await Bun.write(join(scratch.root, 'named-release.yaml'), markerV2());
+    await Bun.write(join(scratch.root, 'release.yaml'), decoyV2());
   }
   await Bun.write(join(scratch.root, 'Named-Changelog.md'), '# Named Changelog\n');
   await Bun.write(join(scratch.root, 'Decoy-Changelog.md'), '# Decoy Changelog\n');
@@ -173,7 +173,7 @@ async function sha256(path: string): Promise<string | null> {
 async function repository(message = 'feat: add release'): Promise<{ readonly root: string; readonly remote: string }> {
   const scratch = await scratchRepository();
   roots.push(scratch.root, scratch.remote);
-  await Bun.write(join(scratch.root, 'atomi_release.yaml'), v2Config());
+  await Bun.write(join(scratch.root, 'release.yaml'), v2Config());
   await Bun.write(join(scratch.root, 'Changelog.md'), '# Changelog\n');
   await Bun.write(join(scratch.root, 'CommitConventions.md'), '# old\n');
   await Bun.write(join(scratch.root, 'package.json'), '{"name":"fixture","version":"1.0.0"}\n');
@@ -238,7 +238,7 @@ describe(`releaser SIT (${process.env.SIT_DRIVER === 'binary' ? 'binary' : 'in-p
     // Arrange
     const scratch = await scratchRepository();
     roots.push(scratch.root, scratch.remote);
-    await Bun.write(join(scratch.root, 'atomi_release.yaml'), hookConfig());
+    await Bun.write(join(scratch.root, 'release.yaml'), hookConfig());
     await Bun.write(join(scratch.root, 'Changelog.md'), '# Changelog\n');
     await Bun.write(join(scratch.root, 'CommitConventions.md'), '# old\n');
     await Bun.write(join(scratch.root, 'package.json'), '{"name":"fixture","version":"1.0.0"}\n');
@@ -330,13 +330,13 @@ plugins:
       message: "release: \${nextRelease.version}\\n\\n\${nextRelease.notes}\\n\\n[skip ci]\\n\\nSigned"
       assets: [Changelog.md]
 `;
-    await Bun.write(join(scratch.root, 'atomi_release.yaml'), legacy);
+    await Bun.write(join(scratch.root, 'release.yaml'), legacy);
     await Bun.write(join(scratch.root, '.gitlint'), 'legacy');
     await Bun.write(join(scratch.root, '.releaserc.yaml'), 'generated');
 
     // Act
     const first = await driver.run(['migrate'], scratch.root);
-    const migrated = await Bun.file(join(scratch.root, 'atomi_release.yaml')).text();
+    const migrated = await Bun.file(join(scratch.root, 'release.yaml')).text();
     const second = await driver.run(['migrate'], scratch.root);
 
     // Assert
@@ -351,7 +351,7 @@ plugins:
         },
       },
     });
-    expect(await Bun.file(join(scratch.root, 'atomi_release.yaml')).text()).toBe(migrated);
+    expect(await Bun.file(join(scratch.root, 'release.yaml')).text()).toBe(migrated);
     expect(await Bun.file(join(scratch.root, '.gitlint')).exists()).toBe(false);
     expect(await Bun.file(join(scratch.root, '.releaserc.yaml')).exists()).toBe(false);
   });
@@ -361,9 +361,9 @@ plugins:
     const scratch = await repository();
     await run(['git', 'branch', '-m', 'wrong'], scratch.root);
     const wrong = await driver.run(['next'], scratch.root);
-    const config = await Bun.file(join(scratch.root, 'atomi_release.yaml')).text();
+    const config = await Bun.file(join(scratch.root, 'release.yaml')).text();
     await Bun.write(
-      join(scratch.root, 'atomi_release.yaml'),
+      join(scratch.root, 'release.yaml'),
       config.replace('schemaVersion: 2', 'branches: [main]\nplugins: [{ module: "@semantic-release/npm" }]'),
     );
 
@@ -379,7 +379,7 @@ plugins:
   it('should reject an invalid rendered tag before every release mutation surface', async () => {
     // Arrange
     const scratch = await repository();
-    const configPath = join(scratch.root, 'atomi_release.yaml');
+    const configPath = join(scratch.root, 'release.yaml');
     const config = await Bun.file(configPath).text();
     await Bun.write(configPath, config.replace('branches: [main]', 'branches: [main]\n  tagFormat: "bad..${version}"'));
     await commitAll(scratch.root, 'feat: configure invalid tag');
@@ -423,7 +423,7 @@ describe(`releaser -c/--config (${process.env.SIT_DRIVER === 'binary' ? 'binary'
       const help = helps[index];
       expect(help?.out).toContain(`Usage: releaser ${command}`);
       expect(help?.out).toContain('-c, --config <path>');
-      expect(help?.out).toContain('atomi_release.yaml');
+      expect(help?.out).toContain('release.yaml');
     }
     // The control: the bogus name never gets an own usage line, so the six above
     // are genuinely per-subcommand results and not root-help fallthroughs.
@@ -441,7 +441,7 @@ describe(`releaser -c/--config (${process.env.SIT_DRIVER === 'binary' ? 'binary'
     const control = await markerRepository();
 
     // Act
-    const actual = await driver.run(['conventions', '-c', 'release.yaml'], named);
+    const actual = await driver.run(['conventions', '-c', 'named-release.yaml'], named);
     const withoutFlag = await driver.run(['conventions'], control);
 
     // Assert -- the MUTATION, never the exit code.
@@ -459,32 +459,32 @@ describe(`releaser -c/--config (${process.env.SIT_DRIVER === 'binary' ? 'binary'
     // migrate rewrites IN PLACE, so a pass-through bug writes the RIGHT content to
     // the WRONG file and still exits 0. Assert which file's sha256 moved.
     const root = await markerRepository('v1');
-    const namedBefore = await sha256(join(root, 'release.yaml'));
-    const decoyBefore = await sha256(join(root, 'atomi_release.yaml'));
+    const namedBefore = await sha256(join(root, 'named-release.yaml'));
+    const decoyBefore = await sha256(join(root, 'release.yaml'));
 
     // Act
-    const actual = await driver.run(['migrate', '-c', 'release.yaml'], root);
+    const actual = await driver.run(['migrate', '-c', 'named-release.yaml'], root);
 
     // Assert
-    expect(await sha256(join(root, 'release.yaml'))).not.toBe(namedBefore);
-    expect(await sha256(join(root, 'atomi_release.yaml'))).toBe(decoyBefore);
-    expect(await Bun.file(join(root, 'release.yaml')).text()).toContain(MARK);
-    expect(actual.out).toContain('migrated release.yaml to schemaVersion 2');
+    expect(await sha256(join(root, 'named-release.yaml'))).not.toBe(namedBefore);
+    expect(await sha256(join(root, 'release.yaml'))).toBe(decoyBefore);
+    expect(await Bun.file(join(root, 'named-release.yaml')).text()).toContain(MARK);
+    expect(actual.out).toContain('migrated named-release.yaml to schemaVersion 2');
   });
 
   it('should migrate the default file when no -c is given', async () => {
     // Arrange -- in-population known positive for the sha instrument.
     const root = await markerRepository('v1');
-    const namedBefore = await sha256(join(root, 'release.yaml'));
-    const decoyBefore = await sha256(join(root, 'atomi_release.yaml'));
+    const namedBefore = await sha256(join(root, 'named-release.yaml'));
+    const decoyBefore = await sha256(join(root, 'release.yaml'));
 
     // Act
     const actual = await driver.run(['migrate'], root);
 
     // Assert
-    expect(await sha256(join(root, 'atomi_release.yaml'))).not.toBe(decoyBefore);
-    expect(await sha256(join(root, 'release.yaml'))).toBe(namedBefore);
-    expect(actual.out).toContain('migrated atomi_release.yaml to schemaVersion 2');
+    expect(await sha256(join(root, 'release.yaml'))).not.toBe(decoyBefore);
+    expect(await sha256(join(root, 'named-release.yaml'))).toBe(namedBefore);
+    expect(actual.out).toContain('migrated release.yaml to schemaVersion 2');
   });
 
   it('should print the version the -c-named config decides, not the default one', async () => {
@@ -496,7 +496,7 @@ describe(`releaser -c/--config (${process.env.SIT_DRIVER === 'binary' ? 'binary'
     const control = await markerRepository();
 
     // Act
-    const actual = await driver.run(['next', '-c', 'release.yaml'], named);
+    const actual = await driver.run(['next', '-c', 'named-release.yaml'], named);
     const withoutFlag = await driver.run(['next'], control);
 
     // Assert -- the OUTPUT.
@@ -512,7 +512,7 @@ describe(`releaser -c/--config (${process.env.SIT_DRIVER === 'binary' ? 'binary'
     const control = await markerRepository();
 
     // Act
-    const actual = await driver.run(['changelog', '-c', 'release.yaml'], named);
+    const actual = await driver.run(['changelog', '-c', 'named-release.yaml'], named);
     const withoutFlag = await driver.run(['changelog'], control);
 
     // Assert -- the OUTPUT.
@@ -536,9 +536,9 @@ describe(`releaser -c/--config (${process.env.SIT_DRIVER === 'binary' ? 'binary'
     await commitAll(root, 'chore: add the lint fixture');
 
     // Act
-    const named = await driver.run(['release', '--dry-run', '-c', 'release.yaml'], root);
+    const named = await driver.run(['release', '--dry-run', '-c', 'named-release.yaml'], root);
     const withoutFlag = await driver.run(['release', '--dry-run'], root);
-    const lintNamed = await driver.run(['lint-commit', 'msg.txt', '-c', 'release.yaml'], root);
+    const lintNamed = await driver.run(['lint-commit', 'msg.txt', '-c', 'named-release.yaml'], root);
     const lintWithoutFlag = await driver.run(['lint-commit', 'msg.txt'], root);
 
     // Assert
@@ -707,7 +707,7 @@ describe(`conventions --check, D9 (${process.env.SIT_DRIVER === 'binary' ? 'bina
   it('A5: should fail when the configuration moves and the document does not', async () => {
     // Arrange — the document stays exactly as generated; the config changes.
     const { root } = await generatedRepository();
-    const configPath = join(root, 'atomi_release.yaml');
+    const configPath = join(root, 'release.yaml');
     const config = await Bun.file(configPath).text();
     await Bun.write(configPath, config.replace('desc: Test type', 'desc: Test type with a new description'));
 
@@ -737,7 +737,7 @@ describe(`conventions --check, D9 (${process.env.SIT_DRIVER === 'binary' ? 'bina
   it('A8: should fail for a CONFIG-READ reason when the configuration is unreadable', async () => {
     // Arrange
     const { root } = await generatedRepository();
-    await rm(join(root, 'atomi_release.yaml'));
+    await rm(join(root, 'release.yaml'));
 
     // Act
     const actual = await driver.run(['conventions', '--check'], root);

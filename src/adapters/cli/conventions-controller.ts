@@ -13,7 +13,7 @@ export class ConventionsController {
     program
       .command('conventions')
       .description('write the configured commit-conventions document')
-      .option('-c, --config <path>', 'release configuration path', 'atomi_release.yaml')
+      .option('-c, --config <path>', 'release configuration path', 'release.yaml')
       .option('--check', 'verify the document matches the configuration instead of writing it')
       .action((options: { config: string; check?: boolean }) => this.handle(options.config, options.check === true));
   }

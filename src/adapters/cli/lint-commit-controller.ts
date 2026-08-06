@@ -18,7 +18,7 @@ export class LintCommitController {
       .command('lint-commit')
       .description('validate a commit message')
       .argument('<msgfile>', 'commit-message file')
-      .option('-c, --config <path>', 'release configuration path', 'atomi_release.yaml')
+      .option('-c, --config <path>', 'release configuration path', 'release.yaml')
       .action((msgfile: string, options: { config: string }) => this.handle(msgfile, options.config));
   }
 

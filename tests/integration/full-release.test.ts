@@ -44,7 +44,7 @@ release:
     assets: [Changelog.md, CommitConventions.md]
   github: false
 `;
-    await Bun.write(join(scratch.root, 'atomi_release.yaml'), config);
+    await Bun.write(join(scratch.root, 'release.yaml'), config);
     await Bun.write(join(scratch.root, 'Changelog.md'), '# Changelog\n');
     await Bun.write(join(scratch.root, 'CommitConventions.md'), '# old\n');
     await Bun.write(join(scratch.root, 'package.json'), '{"name":"fixture","version":"1.0.0"}\n');
@@ -114,7 +114,7 @@ release:
     assets: [Changelog.md, CommitConventions.md, VERSION, package.json, packages/thing/pubspec.yaml]
   github: false
 `;
-    await Bun.write(join(scratch.root, 'atomi_release.yaml'), config);
+    await Bun.write(join(scratch.root, 'release.yaml'), config);
     await Bun.write(join(scratch.root, 'Changelog.md'), '# Changelog\n');
     await Bun.write(join(scratch.root, 'CommitConventions.md'), '# old\n');
     await Bun.write(join(scratch.root, 'VERSION'), '0.1.0\n');
