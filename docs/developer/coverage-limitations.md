@@ -1,3 +1,8 @@
+---
+id: coverage-limitations
+title: What the Coverage Gate Does Not Prove
+---
+
 # What the 100% coverage gate does and does not prove
 
 `scripts/ci/test.sh` fails the build unless every line in the tier's scope is reported hit. That gate
