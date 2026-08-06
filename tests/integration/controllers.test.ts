@@ -1,4 +1,5 @@
 import { describe, expect, it, spyOn } from 'bun:test';
+import { BumpController } from '../../src/adapters/cli/bump-controller';
 import { ChangelogController } from '../../src/adapters/cli/changelog-controller';
 import { ConventionsController } from '../../src/adapters/cli/conventions-controller';
 import { LintCommitController } from '../../src/adapters/cli/lint-commit-controller';
@@ -338,5 +339,51 @@ describe('ConsoleIo', () => {
       stderr.mockRestore();
       process.exitCode = previousExitCode ?? 0;
     }
+  });
+});
+
+describe('bump controller', () => {
+  it('should report the written paths, the no-entries case, and a failure', async () => {
+    // Arrange / Act — the happy path names what it wrote, because a bump that
+    // reports nothing is indistinguishable from a bump that did nothing.
+    const calls: string[] = [];
+    const success = captureIo();
+    await new BumpController(
+      releases({
+        bump: async (version: string, path: string) => {
+          calls.push(`${version}@${path}`);
+          return ['VERSION', 'package.json'];
+        },
+      }),
+      success,
+    ).handle('2.5.0', 'custom.yaml');
+
+    // Assert
+    expect(calls).toEqual(['2.5.0@custom.yaml']);
+    expect(success.out).toEqual(['VERSION\npackage.json\nstamped to 2.5.0\n']);
+    expect(success.codes).toEqual([0]);
+
+    // Act — no entries configured: say so rather than print an empty success.
+    const empty = captureIo();
+    await new BumpController(releases({ bump: async () => [] }), empty).handle('2.5.0', 'atomi_release.yaml');
+
+    // Assert
+    expect(empty.out).toEqual(['no bump entries configured in atomi_release.yaml\n']);
+    expect(empty.codes).toEqual([0]);
+
+    // Act — a refusal is surfaced as an error with a non-zero exit.
+    const failure = captureIo();
+    await new BumpController(
+      releases({
+        bump: async () => {
+          throw new Error('VERSION declares no version line');
+        },
+      }),
+      failure,
+    ).handle('2.5.0', 'atomi_release.yaml');
+
+    // Assert
+    expect(failure.err).toEqual(['VERSION declares no version line\n']);
+    expect(failure.codes).toEqual([1]);
   });
 });

@@ -552,3 +552,52 @@ describe('version bumps (write:versions)', () => {
     expect(await files.readText('VERSION')).toBe('0.1.0\n');
   });
 });
+
+describe('standalone bump', () => {
+  /** The manual-repair path: stamp the configured files without releasing. */
+  function standaloneFixture(bumps: ReleaserConfig['release']['bumps'], seed: Record<string, string>) {
+    const harness = fixture({ ...TEST_CONFIG, release: { ...TEST_CONFIG.release, bumps } });
+    for (const [path, content] of Object.entries(seed)) harness.files.values.set(path, content);
+    return harness;
+  }
+
+  it('should stamp the configured files and report which it wrote', async () => {
+    // Arrange
+    const { subject, files } = standaloneFixture(
+      [
+        { type: 'plain-version', file: null, reason: null },
+        { type: 'node-version', file: null, reason: null },
+      ],
+      { VERSION: '0.1.0\n', 'package.json': '{\n  "version": "0.1.0"\n}\n' },
+    );
+
+    // Act — a leading v is stripped, matching the script this replaces.
+    const written = await subject.bump('v2.5.0');
+
+    // Assert
+    expect([...written]).toEqual(['VERSION', 'package.json']);
+    expect(await files.readText('VERSION')).toBe('2.5.0\n');
+    expect(await files.readText('package.json')).toBe('{\n  "version": "2.5.0"\n}\n');
+  });
+
+  it('should write nothing and report nothing when no bumps are configured', async () => {
+    // Arrange — the must-differ control: without it, a bump that silently did
+    // nothing would be indistinguishable from one that worked.
+    const { subject, files } = standaloneFixture([], { VERSION: '0.1.0\n' });
+
+    // Act
+    const written = await subject.bump('2.5.0');
+
+    // Assert
+    expect([...written]).toEqual([]);
+    expect(await files.readText('VERSION')).toBe('0.1.0\n');
+  });
+
+  it('should refuse a missing target rather than create it', async () => {
+    // Arrange
+    const { subject } = standaloneFixture([{ type: 'plain-version', file: null, reason: null }], {});
+
+    // Act / Assert
+    await expect(subject.bump('2.5.0')).rejects.toThrow(/bump target VERSION does not exist/);
+  });
+});
