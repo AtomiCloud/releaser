@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { RawCommit } from '../../lib/commits/model';
 import { GitError } from '../../lib/errors';
-import type { IGit } from '../../lib/release/ports';
+import type { IGit, ITagReader } from '../../lib/release/ports';
 
 interface GitResult {
   readonly stdout: string;
@@ -120,7 +120,7 @@ async function createAskPass(): Promise<string> {
   return path;
 }
 
-export class GitCli implements IGit {
+export class GitCli implements IGit, ITagReader {
   constructor(
     private readonly cwd: string,
     private readonly token?: string,
@@ -128,6 +128,22 @@ export class GitCli implements IGit {
 
   async currentBranch(): Promise<string> {
     return (await runGit(this.cwd, ['branch', '--show-current'])).stdout.trim();
+  }
+
+  async allTags(): Promise<readonly string[]> {
+    // `for-each-ref`, not `git tag --list`: it applies no implicit reachability
+    // filter and returns names only, so a tag on an unreachable ref — the very
+    // thing that caused the incident — is still counted.
+    const result = await runGit(this.cwd, ['for-each-ref', '--format=%(refname:strip=2)', 'refs/tags']);
+    return result.stdout.split('\n').filter(Boolean);
+  }
+
+  async visibleTags(): Promise<readonly string[]> {
+    return this.reachableTags();
+  }
+
+  async isShallow(): Promise<boolean> {
+    return (await runGit(this.cwd, ['rev-parse', '--is-shallow-repository'])).stdout.trim() === 'true';
   }
 
   async isClean(): Promise<boolean> {

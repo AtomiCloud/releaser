@@ -10,6 +10,53 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map(path => rm(path, { recursive: true })));
 });
 
+describe('Git CLI tag reader', () => {
+  it('should list tags on unreachable refs that the reachable-tag query cannot see', async () => {
+    // Arrange — reproduces the measured incident: a tag on a ref HEAD cannot
+    // reach. `git tag --merged HEAD` returns nothing; `for-each-ref` sees it.
+    const scratch = await scratchRepository();
+    roots.push(scratch.root, scratch.remote);
+    await Bun.write(join(scratch.root, 'Changelog.md'), '# Changelog\n');
+    await commitAll(scratch.root, 'feat: reachable commit');
+    await run(['git', 'tag', 'v1.0.0'], scratch.root);
+    // An orphan commit is unreachable from main; tag it.
+    await run(['git', 'checkout', '-q', '--orphan', 'sidelined'], scratch.root);
+    await commitAll(scratch.root, 'feat: sidelined commit');
+    await run(['git', 'tag', 'v9.9.9'], scratch.root);
+    await run(['git', 'checkout', '-q', 'main'], scratch.root);
+    const subject = new GitCli(scratch.root);
+
+    // Act
+    const all = await subject.allTags();
+    const visible = await subject.visibleTags();
+
+    // Assert — the difference between these two is the whole hazard.
+    expect([...all].sort()).toEqual(['v1.0.0', 'v9.9.9']);
+    expect(visible).toEqual(['v1.0.0']);
+    expect(visible).not.toContain('v9.9.9');
+  });
+
+  it('should report whether the working copy is a shallow clone', async () => {
+    // Arrange
+    const scratch = await scratchRepository();
+    roots.push(scratch.root, scratch.remote);
+    await Bun.write(join(scratch.root, 'Changelog.md'), '# Changelog\n');
+    await commitAll(scratch.root, 'feat: first');
+    await Bun.write(join(scratch.root, 'Changelog.md'), '# Changelog\n\n## next\n');
+    await commitAll(scratch.root, 'feat: second');
+    await run(['git', 'push', '-q', '-u', 'origin', 'main'], scratch.root);
+    // `--depth` is silently ignored for a plain local path; the file://
+    // protocol is what actually produces a shallow clone.
+    const shallowRoot = `${scratch.root}-shallow`;
+    await run(['git', 'clone', '-q', '--depth', '1', `file://${scratch.remote}`, shallowRoot], scratch.root);
+    roots.push(shallowRoot);
+
+    // Act & Assert
+    expect(await new GitCli(scratch.root).isShallow()).toBe(false);
+    expect(await new GitCli(shallowRoot).isShallow()).toBe(true);
+  });
+});
+
 describe('Git CLI adapter', () => {
   it('should read history, stage exact assets, commit, tag, and atomically push to a bare remote', async () => {
     // Arrange

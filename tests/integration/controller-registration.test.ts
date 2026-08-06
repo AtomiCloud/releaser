@@ -6,6 +6,7 @@ import {
   FakeConfigRepository,
   FakeGit,
   FakeGitHub,
+  FakeTagReader,
   FakeHookRunner,
   loadedConfig,
   MemoryFileSystem,
@@ -20,6 +21,7 @@ function registeredProgram() {
     git: new FakeGit(),
     hooks: new FakeHookRunner(),
     github: new FakeGitHub(),
+    tags: new FakeTagReader(),
     clock: new FakeClock(),
   });
   return program;

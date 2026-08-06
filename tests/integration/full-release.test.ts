@@ -9,6 +9,7 @@ import { ConventionsService } from '../../src/lib/release/conventions-service';
 import { HookTemplate } from '../../src/lib/release/hook-template';
 import { NotesService } from '../../src/lib/release/notes-service';
 import { ReleaseService } from '../../src/lib/release/release-service';
+import { TagGuard } from '../../src/lib/release/tag-guard';
 import { VersionService } from '../../src/lib/release/version-service';
 import { FakeClock, FakeGitHub } from '../helpers/fakes';
 import { commitAll, run, scratchRepository } from '../helpers/scratch-repo';
@@ -53,10 +54,11 @@ release:
     const packageBefore = await Bun.file(join(scratch.root, 'package.json')).text();
     const lockBefore = await Bun.file(join(scratch.root, 'bun.lock')).text();
     const files = new BunFileSystem(scratch.root);
+    const git = new GitCli(scratch.root);
     const subject = new ReleaseService(
       new YamlConfigRepository(files),
       files,
-      new GitCli(scratch.root),
+      git,
       new BunHookRunner(scratch.root, process.env),
       new FakeGitHub(),
       new VersionService(),
@@ -64,6 +66,7 @@ release:
       new ConventionsService(),
       new HookTemplate(),
       new FakeClock(),
+      new TagGuard(git),
     );
 
     // Act

@@ -18,8 +18,17 @@ import { MigrationService } from '../src/lib/migration/migration-service';
 import { ConventionsService } from '../src/lib/release/conventions-service';
 import { HookTemplate } from '../src/lib/release/hook-template';
 import { NotesService } from '../src/lib/release/notes-service';
-import type { IClock, IConfigRepository, IFileSystem, IGit, IGitHub, IHookRunner } from '../src/lib/release/ports';
+import type {
+  IClock,
+  IConfigRepository,
+  IFileSystem,
+  IGit,
+  IGitHub,
+  IHookRunner,
+  ITagReader,
+} from '../src/lib/release/ports';
 import { ReleaseService } from '../src/lib/release/release-service';
+import { TagGuard } from '../src/lib/release/tag-guard';
 import { VersionService } from '../src/lib/release/version-service';
 
 const BINARY_NAME = 'releaser';
@@ -30,6 +39,7 @@ export interface CliWorld {
   readonly files: IFileSystem;
   readonly configs: IConfigRepository;
   readonly git: IGit;
+  readonly tags: ITagReader;
   readonly hooks: IHookRunner;
   readonly github: IGitHub;
   readonly clock: IClock;
@@ -49,11 +59,13 @@ export function buildWorld(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): CliWorld {
   const files = new BunFileSystem(cwd);
+  const git = new GitCli(cwd, env.GITHUB_TOKEN);
   return {
     io: new ConsoleIo(),
     files,
     configs: new YamlConfigRepository(files),
-    git: new GitCli(cwd, env.GITHUB_TOKEN),
+    git,
+    tags: git,
     hooks: new BunHookRunner(cwd, env),
     github: new GitHubApi(env.GITHUB_TOKEN),
     clock: { today: () => new Date().toISOString().slice(0, 10) },
@@ -72,6 +84,7 @@ export function registerDomain(program: Command, world: CliWorld): void {
     new ConventionsService(),
     new HookTemplate(),
     world.clock,
+    new TagGuard(world.tags),
   );
   const migration = new MigrationService(world.configs, world.files);
   new ReleaseController(releases, world.io).register(program);

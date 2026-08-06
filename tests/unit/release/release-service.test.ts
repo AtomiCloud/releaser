@@ -5,6 +5,7 @@ import { ConventionsService } from '../../../src/lib/release/conventions-service
 import { HookTemplate } from '../../../src/lib/release/hook-template';
 import { NotesService } from '../../../src/lib/release/notes-service';
 import { describeConventionsCheck, ReleaseService, userMessage } from '../../../src/lib/release/release-service';
+import { TagGuard } from '../../../src/lib/release/tag-guard';
 import { VersionService } from '../../../src/lib/release/version-service';
 import {
   FakeClock,
@@ -12,6 +13,7 @@ import {
   FakeGit,
   FakeGitHub,
   FakeHookRunner,
+  FakeTagReader,
   loadedConfig,
   MemoryFileSystem,
   TEST_CONFIG,
@@ -23,17 +25,20 @@ function fixture(config = TEST_CONFIG): {
   readonly git: FakeGit;
   readonly hooks: FakeHookRunner;
   readonly github: FakeGitHub;
+  readonly tags: FakeTagReader;
 } {
   const files = new MemoryFileSystem({ 'Changelog.md': '# Changelog\n', 'bun.lock': 'locked' });
   const git = new FakeGit();
   git.commits = [{ sha: 'a'.repeat(40), message: 'feat: add release' }];
   const hooks = new FakeHookRunner();
   const github = new FakeGitHub();
+  const tags = new FakeTagReader();
   return {
     files,
     git,
     hooks,
     github,
+    tags,
     subject: new ReleaseService(
       new FakeConfigRepository(loadedConfig(config)),
       files,
@@ -45,6 +50,7 @@ function fixture(config = TEST_CONFIG): {
       new ConventionsService(),
       new HookTemplate(),
       new FakeClock(),
+      new TagGuard(tags),
     ),
   };
 }
@@ -404,6 +410,7 @@ describe('conventions check (D9)', () => {
       new ConventionsService(),
       new HookTemplate(),
       new FakeClock(),
+      new TagGuard(release.tags),
     );
 
     // Act & Assert — "I could not look" must never render as "it is clean".

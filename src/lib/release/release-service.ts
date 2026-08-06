@@ -6,6 +6,7 @@ import type { HookTemplate } from './hook-template';
 import { unifiedDiff } from './line-diff';
 import type { NotesService } from './notes-service';
 import type { IClock, IConfigRepository, IFileSystem, IGit, IGitHub, IHookRunner, LoadedConfig } from './ports';
+import { renderRefusal, type TagGuard } from './tag-guard';
 import type { ReleaseTag, VersionService } from './version-service';
 
 export interface ReleasePreview {
@@ -155,7 +156,18 @@ export class ReleaseService {
     private readonly conventions: ConventionsService,
     private readonly templates: HookTemplate,
     private readonly clock: IClock,
+    private readonly guard: TagGuard,
   ) {}
+
+  /**
+   * Mandatory preflight. There is deliberately **no bypass flag**: the hazard
+   * it closes is one where the release commit and changelog land and only the
+   * tagging step fails, so an escape hatch here would only make that outcome
+   * reachable on purpose.
+   */
+  private async refuseOnExistingTag(refusal: Awaited<ReturnType<TagGuard['checkVisibility']>>): Promise<void> {
+    if (refusal !== null) throw new ReleaseError(renderRefusal(refusal), 'tag-guard');
+  }
 
   async preview(configPath = 'atomi_release.yaml'): Promise<ReleasePreview | null> {
     const loaded = await this.configs.load(configPath);
@@ -192,9 +204,17 @@ export class ReleaseService {
   }
 
   async release(configPath = 'atomi_release.yaml', dryRun = false): Promise<ReleasePreview | null> {
+    // Arm 1, before anything is read, computed or written: the repository must
+    // hold no version tag that HEAD cannot reach, because the next version is
+    // computed from reachable tags only and could land on one of them.
+    await this.refuseOnExistingTag(await this.guard.checkVisibility());
     if (!(await this.git.isClean())) throw new ReleaseError('working tree must be clean', 'precondition');
     const preview = await this.preview(configPath);
-    if (preview === null || dryRun) return preview;
+    if (preview === null) return preview;
+    // Arm 2, once a concrete version exists but before any write: that exact
+    // version's tag must be free anywhere in the repository.
+    await this.refuseOnExistingTag(await this.guard.checkVersion(preview.version));
+    if (dryRun) return preview;
     const beforeLocks = await lockHashes(this.files);
 
     for (const hook of preview.config.release.hooks.prepare.filter(candidate => candidate.phase === 'beforeWrite')) {
