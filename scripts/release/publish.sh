@@ -51,6 +51,11 @@ goreleaser release --clean --skip=publish --release-notes ./IncrementalChangelog
 # Only the FATALITY is suspended, not the order.
 echo "📤 Pushing Linux packages to Gemfury ..."
 if ! ./scripts/release/fury.sh; then
+  # A GitHub Actions warning annotation, so a GREEN run still VISIBLY carries the
+  # degradation in its summary. stderr alone is not loud enough: suspending the
+  # fatality turns a failing check into a passing one, and a green that quietly
+  # means "one channel is dead" is exactly the check that stops being read.
+  echo "::warning title=Gemfury push failed (temporarily non-fatal)::The Linux deb/rpm channel did NOT publish for this release. This is a TEMPORARY owner ruling so that the GitHub release and Homebrew cask can publish at all. RESTORE FATALITY in scripts/release/publish.sh once FURY_TOKEN is fixed (it is present but rejected with HTTP 403, so it is a permission on push.fury.io/atomicloud)."
   echo "⚠️ Gemfury push FAILED — continuing so the GitHub release and cask still publish." >&2
   echo "⚠️ This is a TEMPORARY owner ruling; restore fatality once FURY_TOKEN is fixed." >&2
 fi
