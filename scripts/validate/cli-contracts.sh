@@ -59,6 +59,23 @@ fury-wiring)
   }
   rg -F -- '--config "${credential_config}"' scripts/release/fury.sh
   ! rg -F '${FURY_TOKEN}@' scripts/release/fury.sh
+  # The Gemfury push is TEMPORARILY non-fatal (owner ruling). Suspending the
+  # fatality turns a failing check green, so the only remaining signal is the
+  # warning annotation — and a signal that can be tidied away without CI
+  # noticing is not a signal. Both halves are asserted together:
+  #   - the guarded form, so fatality cannot be left suspended by accident
+  #   - the annotation, so the degradation cannot be silently un-announced
+  # RESTORING FATALITY IS A DELIBERATE ACT: drop the guard, drop the annotation,
+  # and drop these two assertions in the SAME commit. That is the point — the
+  # restore shows up in the diff instead of resting on someone's memory.
+  rg -F 'if ! ./scripts/release/fury.sh; then' scripts/release/publish.sh || {
+    echo '❌ the Gemfury push must keep its guarded form while non-fatality stands (or restore fatality and drop this assertion)' >&2
+    exit 1
+  }
+  rg -F '::warning title=Gemfury push failed' scripts/release/publish.sh || {
+    echo '❌ a non-fatal Gemfury push must announce itself as a workflow warning; a green run may not hide a dead channel' >&2
+    exit 1
+  }
   ;;
 installer-checksum)
   rg -F 'checksums.txt' scripts/release/install.sh
