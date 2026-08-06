@@ -18,8 +18,16 @@ export interface GuardRefusal {
  * build metadata may itself contain a dash: `1.0.0+build-4` is a release, and
  * scanning for the first dash would read `4` as its prerelease and rank it
  * below plain `1.0.0`.
+ *
+ * This is the SemVer grammar rather than a loose `x.y.z` shape, so a MALFORMED
+ * tag is not mistaken for a version: a separator with nothing after it
+ * (`1.2.3-`, `1.2.3+`) and a leading-zero component (`01.2.3`) are rejected.
+ * Both guard methods already treat an unparseable tag correctly — one filters
+ * it out of the version set, the other refuses — so tightening the grammar is
+ * the whole fix and neither method needs a new branch.
  */
-const FULL_VERSION = /^v?(\d+)\.(\d+)\.(\d+)(?:-([^+]*))?(?:\+.*)?$/;
+const FULL_VERSION =
+  /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*)?$/;
 
 interface SemVer {
   readonly raw: string;
