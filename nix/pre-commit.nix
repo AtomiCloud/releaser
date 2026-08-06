@@ -62,6 +62,8 @@ let
       packages.jq
       packages.ripgrep
       packages.yq-go
+      pkgs.prettier
+      pkgs.diffutils
       pkgs.coreutils
       pkgs.findutils
       pkgs.gnugrep
@@ -124,6 +126,14 @@ pre-commit-lib.run {
       name = "CLI architecture and Knip entries";
       entry = validator "scripts/validate/cli-contracts.sh arch";
       files = "^(bin/|src/|knip(\.production)?(\.llm)?\.json$)";
+      pass_filenames = false;
+      language = "system";
+    };
+
+    a-changelog-format = {
+      enable = true;
+      name = "Changelog formatter stability";
+      entry = validator "scripts/validate/cli-contracts.sh changelog-format";
       pass_filenames = false;
       language = "system";
     };

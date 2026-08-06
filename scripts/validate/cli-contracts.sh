@@ -92,6 +92,47 @@ fury-wiring)
     exit 1
   }
   ;;
+changelog-format)
+  # The generated changelog must be what the formatter would already produce.
+  # Emitting markdown a formatter rewrites makes every adopting repository fail
+  # its own format gate on a file nobody edited — and the exclusion workaround
+  # only protects repositories that know to add it.
+  #
+  # ⚠️ THIS EXISTS BECAUSE THE ALTERNATIVE FAILS SILENTLY. A formatter release
+  # could change what canonical means, and without this the breakage would reach
+  # adopters one at a time, invisibly. Here it breaks OUR ci first.
+  # Name the preconditions rather than inferring them from exit codes. A missing
+  # `diff` makes the control below look like it PASSED — every comparison
+  # "differs" when the comparator is absent — while the real assertions fail for
+  # a reason that has nothing to do with the format. Measured, not imagined.
+  for required in prettier diff; do
+    command -v "${required}" >/dev/null 2>&1 || {
+      echo "❌ ${required} is not available, so this check cannot run (it would report a false failure)" >&2
+      exit 1
+    }
+  done
+  tmp="$(mktemp -d)"
+  before="$(mktemp -d)"
+  trap 'rm -rf "${tmp}" "${before}"' EXIT
+  # A must-differ control: if the formatter does not rewrite THIS, it did not run
+  # at all, and every "unchanged" below would be meaningless.
+  printf '#   Bad   Spacing\n\n\n\ntext   here\n' >"${tmp}/control.md"
+  cp tests/fixtures/golden/*-notes.md "${tmp}/"
+  cp "${tmp}"/*.md "${before}/"
+  prettier --write "${tmp}"/*.md >/dev/null 2>&1 || true
+  if diff -q "${before}/control.md" "${tmp}/control.md" >/dev/null 2>&1; then
+    echo '❌ the formatter did not rewrite the control, so this check proves nothing' >&2
+    exit 1
+  fi
+  for generated in "${tmp}"/*-notes.md; do
+    name="$(basename "${generated}")"
+    if ! diff -q "${before}/${name}" "${generated}" >/dev/null 2>&1; then
+      echo "❌ generated changelog notes are not formatter-stable: ${name}" >&2
+      diff "${before}/${name}" "${generated}" >&2 | head -10
+      exit 1
+    fi
+  done
+  ;;
 installer-checksum)
   rg -F 'checksums.txt' scripts/release/install.sh
   rg -e 'sha256sum -c|shasum -a 256' scripts/release/install.sh
