@@ -20,8 +20,8 @@ describe('tag guard', () => {
   describe('checkVersion', () => {
     it('should refuse a version whose tag already exists, prefixed or bare', async () => {
       // Act
-      const prefixed = await guard(['v1.0.1']).checkVersion('1.0.1');
-      const bare = await guard(['1.0.1']).checkVersion('v1.0.1');
+      const prefixed = await guard(['v1.0.1']).checkVersion('1.0.1', 'v1.0.1');
+      const bare = await guard(['1.0.1']).checkVersion('v1.0.1', 'v1.0.1');
 
       // Assert
       for (const refusal of [prefixed, bare]) {
@@ -39,20 +39,33 @@ describe('tag guard', () => {
 
       // Assert — no member of the port can carry identity.
       expect(Object.keys(reader).filter(key => /tagger|committer|author|date|message/i.test(key))).toEqual([]);
-      expect(await new TagGuard(reader).checkVersion('1.0.1')).not.toBeNull();
+      expect(await new TagGuard(reader).checkVersion('1.0.1', 'v1.0.1')).not.toBeNull();
     });
 
     it('should allow a free version — the must-differ control', async () => {
       // Act
-      const actual = await guard(['v1.0.0', 'v1.0.1']).checkVersion('1.0.2');
+      const actual = await guard(['v1.0.0', 'v1.0.1']).checkVersion('1.0.2', 'v1.0.2');
 
       // Assert — without this a guard that refused unconditionally would pass.
       expect(actual).toBeNull();
     });
 
+    it('should refuse a collision on a NON-DEFAULT tag format', async () => {
+      // Arrange — `tagFormat` is configurable, so the concrete ref the release
+      // would create is the thing that must be free. Guessing `1.0.0`/`v1.0.0`
+      // from the bare version would never look for this tag at all.
+      const custom = await guard(['release-1.0.0']).checkVersion('1.0.0', 'release-1.0.0');
+      const free = await guard(['release-0.9.0']).checkVersion('1.0.0', 'release-1.0.0');
+
+      // Assert
+      expect(custom?.code).toBe('tag-collision');
+      expect(custom?.message).toContain('release-1.0.0');
+      expect(free).toBeNull();
+    });
+
     it('should refuse an unparseable version rather than guess what to check', async () => {
       // Act
-      const actual = await guard([]).checkVersion('not-a-version');
+      const actual = await guard([]).checkVersion('not-a-version', 'not-a-version');
 
       // Assert
       expect(actual?.code).toBe('invalid-version');
@@ -100,6 +113,16 @@ describe('tag guard', () => {
       // Equal precedence keeps the first.
       expect(await highestUnreachable(['1.0.0-rc.1', 'v1.0.0-rc.1'])).toContain('highest: 1.0.0-rc.1');
     });
+
+    it('should not read a dash inside build metadata as a prerelease', async () => {
+      // Arrange — `1.0.0+build-4` is a RELEASE. Recovering the prerelease by
+      // scanning for the first dash would read it as `4` and rank it below
+      // plain `1.0.0`, naming the wrong tag as highest.
+      const actual = await highestUnreachable(['1.0.0-rc.1', '1.0.0+build-4']);
+
+      // Assert
+      expect(actual).toContain('highest: 1.0.0+build-4');
+    });
   });
 
   describe('preflight', () => {
@@ -121,7 +144,7 @@ describe('tag guard', () => {
       }).checkVisibility();
       const version = await guard([], [], reader => {
         reader.failure = new Error('not a git repository');
-      }).checkVersion('1.0.0');
+      }).checkVersion('1.0.0', 'v1.0.0');
 
       // Assert — "I could not look" is not "I looked and it is clear".
       expect(visibility?.code).toBe('not-a-git-repo');
@@ -143,7 +166,7 @@ describe('tag guard', () => {
 
   it('should render a refusal as code-then-message so CI can grep the code', async () => {
     // Arrange
-    const refusal = await guard(['v1.0.1']).checkVersion('1.0.1');
+    const refusal = await guard(['v1.0.1']).checkVersion('1.0.1', 'v1.0.1');
     if (refusal === null) throw new Error('expected a refusal');
 
     // Act

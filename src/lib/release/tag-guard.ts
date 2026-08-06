@@ -11,8 +11,15 @@ export interface GuardRefusal {
   readonly message: string;
 }
 
-/** `1.2.3`, `v1.2.3`, `v1.2.3-rc.1`, `1.2.3+build.4`. */
-const FULL_VERSION = /^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/;
+/**
+ * `1.2.3`, `v1.2.3`, `v1.2.3-rc.1`, `1.2.3+build.4`.
+ *
+ * The prerelease is CAPTURED rather than recovered with `indexOf('-')`, because
+ * build metadata may itself contain a dash: `1.0.0+build-4` is a release, and
+ * scanning for the first dash would read `4` as its prerelease and rank it
+ * below plain `1.0.0`.
+ */
+const FULL_VERSION = /^v?(\d+)\.(\d+)\.(\d+)(?:-([^+]*))?(?:\+.*)?$/;
 
 interface SemVer {
   readonly raw: string;
@@ -33,13 +40,12 @@ interface SemVer {
 function parseVersion(tag: string): SemVer | null {
   const match = FULL_VERSION.exec(tag);
   if (match === null) return null;
-  const dash = tag.indexOf('-');
   return {
     raw: tag,
     major: Number(match[1]),
     minor: Number(match[2]),
     patch: Number(match[3]),
-    prerelease: dash >= 0 ? tag.slice(dash + 1) : '',
+    prerelease: match[4] ?? '',
   };
 }
 
@@ -122,8 +128,13 @@ export class TagGuard {
   /**
    * Refuses when a tag for `version` already exists anywhere in the repository
    * — reachable or not, annotated or lightweight, whoever created it.
+   *
+   * `tag` is the concrete ref the release would create. It must be supplied
+   * and checked in its own right, because `tagFormat` is configurable: a
+   * project using `release-${version}` would collide on `release-1.0.0`, which
+   * no amount of guessing from the bare version would ever look for.
    */
-  async checkVersion(version: string): Promise<GuardRefusal | null> {
+  async checkVersion(version: string, tag: string): Promise<GuardRefusal | null> {
     if (parseVersion(version) === null) {
       return {
         code: 'invalid-version',
@@ -137,8 +148,8 @@ export class TagGuard {
     if (snapshot.refusal !== null) return snapshot.refusal;
 
     const bare = version.startsWith('v') ? version.slice(1) : version;
-    const candidates = [bare, `v${bare}`];
-    const taken = snapshot.all.filter(tag => candidates.includes(tag));
+    const candidates = [...new Set([bare, `v${bare}`, tag])];
+    const taken = snapshot.all.filter(existing => candidates.includes(existing));
     if (taken.length === 0) return null;
 
     return {

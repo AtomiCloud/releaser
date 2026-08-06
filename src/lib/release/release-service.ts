@@ -213,7 +213,7 @@ export class ReleaseService {
     if (preview === null) return preview;
     // Arm 2, once a concrete version exists but before any write: that exact
     // version's tag must be free anywhere in the repository.
-    await this.refuseOnExistingTag(await this.guard.checkVersion(preview.version));
+    await this.refuseOnExistingTag(await this.guard.checkVersion(preview.version, preview.tag));
     if (dryRun) return preview;
     const beforeLocks = await lockHashes(this.files);
 
