@@ -36,6 +36,10 @@ test_status=$?
 set -e
 
 [[ ! -f ${coverage_file} ]] && echo "❌ No coverage artifact found at ${coverage_file}" >&2 && exit 1
+# ⚠️ THIS GATE PROVES NOTHING WAS REPORTED UNHIT — NOT THAT A GIVEN LINE RAN.
+# A never-entered loop body in a large file has been measured reporting as hit
+# while the gate passed at 100%. See docs/developer/coverage-limitations.md for
+# the measurement and for how to actually prove a line executed.
 
 awk -v scope="${scope}" '
   BEGIN { files = 0; lines_found = 0; lines_hit = 0; bad = 0 }
