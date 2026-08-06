@@ -13,6 +13,7 @@ let
         excludes = [
           ".claude/skills/vendor/**"
           "Changelog.md"
+          "Changelog.old.md"
           "docs/developer/CommitConventions.md"
           "infra/root_chart/**"
           "tests/fixtures/golden/*.md"
