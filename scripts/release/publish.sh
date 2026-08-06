@@ -37,8 +37,28 @@ fi
 echo "📦 Staging release artifacts without publishing ..."
 goreleaser release --clean --skip=publish --release-notes ./IncrementalChangelog.md
 
+# ⚠️ TEMPORARY NON-FATALITY (owner ruling). RESTORE THE `set -e` BEHAVIOUR ONCE FURY_TOKEN IS FIXED.
+#
+# This push has failed with HTTP 403 at EVERY tag since v1.0.0 — the token is
+# present but rejected, so it is a credential problem rather than a code one.
+# Under `set -e` that failure aborted the script HERE, before the GoReleaser
+# call below, so the GitHub release and the Homebrew cask were never published
+# once in this repository's history. One optional distribution channel was
+# decapitating the primary ones.
+#
+# The line stays in this position deliberately: `cli-contracts.sh fury-wiring`
+# asserts stage < fury < publish, and that ordering is the contract's intent.
+# Only the FATALITY is suspended, not the order.
 echo "📤 Pushing Linux packages to Gemfury ..."
-./scripts/release/fury.sh
+if ! ./scripts/release/fury.sh; then
+  # A GitHub Actions warning annotation, so a GREEN run still VISIBLY carries the
+  # degradation in its summary. stderr alone is not loud enough: suspending the
+  # fatality turns a failing check into a passing one, and a green that quietly
+  # means "one channel is dead" is exactly the check that stops being read.
+  echo "::warning title=Gemfury push failed (temporarily non-fatal)::The Linux deb/rpm channel did NOT publish for this release. This is a TEMPORARY owner ruling so that the GitHub release and Homebrew cask can publish at all. RESTORE FATALITY in scripts/release/publish.sh once FURY_TOKEN is fixed (it is present but rejected with HTTP 403, so it is a permission on push.fury.io/atomicloud)."
+  echo "⚠️ Gemfury push FAILED — continuing so the GitHub release and cask still publish." >&2
+  echo "⚠️ This is a TEMPORARY owner ruling; restore fatality once FURY_TOKEN is fixed." >&2
+fi
 
 echo "📦 GoReleaser release (creates the GitHub release, publishes the cask) ..."
 goreleaser release --clean --release-notes ./IncrementalChangelog.md
