@@ -38,6 +38,25 @@ export interface IGit {
   push(branch: string, tag: string): Promise<void>;
 }
 
+/**
+ * Reads tag NAMES from a repository.
+ *
+ * Deliberately exposes no way to read a tag's tagger, committer, date or
+ * message. The collision guard must refuse an existing tag REGARDLESS OF WHO
+ * MINTED IT: of the four tags that blocked a release on this fleet, two were
+ * the human owner's, and a minter-sensitive guard would have waved them
+ * through. Keeping identity out of this interface makes that failure
+ * unrepresentable rather than merely unwritten.
+ */
+export interface ITagReader {
+  /** Every tag in the repository, reachable from `HEAD` or not. */
+  allTags(): Promise<readonly string[]>;
+  /** Only the tags reachable from `HEAD` — what version calculation can see. */
+  visibleTags(): Promise<readonly string[]>;
+  /** `false` unless the working copy is a shallow clone. */
+  isShallow(): Promise<boolean>;
+}
+
 export interface IHookRunner {
   run(command: string): Promise<void>;
 }

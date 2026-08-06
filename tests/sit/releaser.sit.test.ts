@@ -767,3 +767,93 @@ describe(`conventions --check, D9 (${process.env.SIT_DRIVER === 'binary' ? 'bina
     expect(await Bun.file(join(root, DOC)).text()).toBe(body);
   });
 });
+
+/**
+ * WF4 — the releaser must refuse to compute a release onto ANY existing tag,
+ * **regardless of who minted it**.
+ *
+ * Two of the four tags that blocked a release on this fleet were the human
+ * owner's own, so a minter-sensitive guard would have waved them through.
+ * The unit suite drives a fake reader that has no tagger at all, which means
+ * minter-insensitivity is *unrepresentable* there and cannot be proved by it.
+ * Only real annotated tags minted under two different identities can, which is
+ * what these arms do.
+ */
+describe(`release tag-collision guard, WF4 (${process.env.SIT_DRIVER === 'binary' ? 'binary' : 'in-process'})`, () => {
+  /** Mints `tag` as `identity` on a ref `main` cannot reach. */
+  async function sidelinedTag(identity: string, tag: string): Promise<{ readonly root: string }> {
+    const scratch = await repository();
+    const as = ['-c', `user.name=${identity}`, '-c', `user.email=${identity}@example.invalid`];
+    await run(['git', 'checkout', '-q', '--orphan', 'sidelined'], scratch.root);
+    await Bun.write(join(scratch.root, 'sidelined.txt'), 'unreachable\n');
+    await run(['git', 'add', '--all'], scratch.root);
+    await run([...['git'], ...as, 'commit', '-q', '--no-gpg-sign', '-m', 'chore: sidelined'], scratch.root);
+    await run([...['git'], ...as, 'tag', '-a', tag, '-m', `release ${tag}`], scratch.root);
+    await run(['git', 'checkout', '-q', 'main'], scratch.root);
+
+    // A fixture that silently failed to take effect would make the arm prove
+    // nothing, so assert the tagger really is who this arm claims it is.
+    const tagger = (
+      await run(['git', 'for-each-ref', '--format=%(taggername)', `refs/tags/${tag}`], scratch.root)
+    ).trim();
+    expect(tagger).toBe(identity);
+    return scratch;
+  }
+
+  it.each([
+    ['kirinnee', 'the human owner'],
+    ['atomi-bot', 'a machine'],
+  ])('should refuse a release when %s (%s) minted the blocking tag', async identity => {
+    // Arrange
+    const scratch = await sidelinedTag(identity, 'v1.0.0');
+    const beforeChangelog = await Bun.file(join(scratch.root, 'Changelog.md')).text();
+
+    // Act
+    const actual = await driver.run(['release'], scratch.root);
+
+    // Assert — the PAIR is the proof. Either arm alone is consistent with a
+    // guard that happens to care about identity.
+    expect(actual.code).not.toBe(0);
+    expect(actual.err).toContain('tag-not-visible');
+    expect(actual.err).toContain('v1.0.0');
+    // Nothing was computed or written: the guard runs before all of it.
+    expect(await Bun.file(join(scratch.root, 'Changelog.md')).text()).toBe(beforeChangelog);
+    expect((await run(['git', 'status', '--porcelain'], scratch.root)).trim()).toBe('');
+    expect(await run(['git', 'log', '-1', '--format=%s'], scratch.root)).toBe('feat: add release\n');
+  });
+
+  it('should let a release past the guard when every tag is reachable — the must-differ control', async () => {
+    // Arrange — same shape, but the tag is ON main rather than sidelined.
+    const scratch = await repository();
+    await run(['git', 'tag', '-a', 'v1.0.0', '-m', 'release v1.0.0'], scratch.root);
+
+    // Act
+    const actual = await driver.run(['release'], scratch.root);
+
+    // Assert — it gets PAST the preflight and stops for a different reason
+    // (no commit since v1.0.0 requests a release). Without this control, a
+    // guard that refused unconditionally would pass every arm above.
+    expect(actual.err).not.toContain('tag-not-visible');
+    expect(actual.err).not.toContain('tag-collision');
+    expect(actual.out).toContain('no release necessary');
+  });
+
+  it('should refuse before computing anything, not after the release commit lands', async () => {
+    // Arrange — this is the wired-in proof: the guard must fire from inside
+    // `release`, not merely exist. A shipped, correct, tested guard that is
+    // not wired in is an inert check.
+    const scratch = await sidelinedTag('kirinnee', 'v2.0.0');
+
+    // Act
+    const dryRun = await driver.run(['release', '--dry-run'], scratch.root);
+    const next = await driver.run(['next'], scratch.root);
+
+    // Assert — `release --dry-run` is guarded too, so the refusal is reachable
+    // without mutating anything. `next` does not release, so it is unguarded
+    // and still answers: that difference shows the guard is wired to the
+    // RELEASE path specifically rather than bolted onto every command.
+    expect(dryRun.code).not.toBe(0);
+    expect(dryRun.err).toContain('tag-not-visible');
+    expect(next.code).toBe(0);
+  });
+});

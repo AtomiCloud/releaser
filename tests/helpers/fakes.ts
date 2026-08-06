@@ -9,6 +9,7 @@ import type {
   IGit,
   IGitHub,
   IHookRunner,
+  ITagReader,
   LoadedConfig,
 } from '../../src/lib/release/ports';
 
@@ -114,6 +115,36 @@ export class FakeConfigRepository implements IConfigRepository {
 
   async writeCanonical(_path: string, config: ReleaserConfig): Promise<void> {
     this.written = config;
+  }
+}
+
+/**
+ * Drives {@link TagGuard} without a real repository.
+ *
+ * Note what this fake CANNOT do: it has no tagger, so it cannot show that the
+ * guard ignores who minted a tag. That property is unrepresentable here and is
+ * proved only by the SIT arms, which mint real annotated tags as two different
+ * identities and assert the same verdict for both.
+ */
+export class FakeTagReader implements ITagReader {
+  all: string[] = [];
+  visible: string[] = [];
+  shallow = false;
+  failure: Error | null = null;
+
+  async allTags(): Promise<readonly string[]> {
+    if (this.failure !== null) throw this.failure;
+    return this.all;
+  }
+
+  async visibleTags(): Promise<readonly string[]> {
+    if (this.failure !== null) throw this.failure;
+    return this.visible;
+  }
+
+  async isShallow(): Promise<boolean> {
+    if (this.failure !== null) throw this.failure;
+    return this.shallow;
   }
 }
 
