@@ -65,6 +65,25 @@ describe('line diff', () => {
     expect(actual).toContain('-alpha');
   });
 
+  it('should locate an insertion-only hunk at the line it follows, not at zero', () => {
+    // Arrange — an insertion AFTER an existing line. The expected side has no
+    // lines in this hunk, but it still has a position: line 1.
+    const actual = unifiedDiff('alpha\n', 'alpha\ninserted\n', { context: 0 });
+
+    // Assert
+    expect(actual).toContain('@@ -1,0 +2,1 @@');
+    expect(actual).toContain('+inserted');
+  });
+
+  it('should locate a deletion-only hunk at the line it follows, not at zero', () => {
+    // Arrange — the mirror case: the actual side is empty in this hunk.
+    const actual = unifiedDiff('alpha\nremoved\n', 'alpha\n', { context: 0 });
+
+    // Assert
+    expect(actual).toContain('@@ -2,1 +1,0 @@');
+    expect(actual).toContain('-removed');
+  });
+
   it('should render deletions, additions and context with custom labels', () => {
     // Arrange
     const expectedBody = 'alpha\nbravo\ncharlie\n';

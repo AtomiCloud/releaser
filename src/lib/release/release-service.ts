@@ -45,8 +45,20 @@ export interface ConventionsCheck {
   readonly warnings: readonly string[];
 }
 
+/**
+ * Single-quotes a path for a POSIX shell, closing and reopening the quote
+ * around any embedded quote. The remedy is an instruction the operator is meant
+ * to paste, so a path containing whitespace must not split into two arguments
+ * and silently regenerate a different file than the one that was judged.
+ */
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
 function remedyCommand(configPath: string): string {
-  return configPath === DEFAULT_CONFIG_PATH ? 'releaser conventions' : `releaser conventions -c ${configPath}`;
+  return configPath === DEFAULT_CONFIG_PATH
+    ? 'releaser conventions'
+    : `releaser conventions -c ${shellQuote(configPath)}`;
 }
 
 /**

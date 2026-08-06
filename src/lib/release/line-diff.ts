@@ -128,6 +128,11 @@ function prefixOf(kind: OpKind): string {
   return kind === 'add' ? '+' : ' ';
 }
 
+function locate(count: number, lineAt: number | undefined): number {
+  const line = lineAt ?? 1;
+  return count === 0 ? Math.max(0, line - 1) : line;
+}
+
 function renderHunks(ops: readonly Op[], context: number): string[] {
   const expectedLineAt: number[] = [];
   const actualLineAt: number[] = [];
@@ -150,8 +155,11 @@ function renderHunks(ops: readonly Op[], context: number): string[] {
       if (op.kind !== 'del') actualCount += 1;
       body.push(`${prefixOf(op.kind)}${op.line}`);
     }
-    const expectedStart = expectedCount === 0 ? 0 : (expectedLineAt[range.start] ?? 0);
-    const actualStart = actualCount === 0 ? 0 : (actualLineAt[range.start] ?? 0);
+    // A zero-count side is located at the line it follows, not at 0: an
+    // insertion after line 1 is `-1,0`, and only an insertion at the very start
+    // of the file is `-0,0`. Reporting 0 unconditionally loses the position.
+    const expectedStart = locate(expectedCount, expectedLineAt[range.start]);
+    const actualStart = locate(actualCount, actualLineAt[range.start]);
     out.push(`@@ -${expectedStart},${expectedCount} +${actualStart},${actualCount} @@`);
     for (const line of body) out.push(line);
   }

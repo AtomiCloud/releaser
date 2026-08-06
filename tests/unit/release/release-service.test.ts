@@ -437,6 +437,21 @@ describe('conventions check (D9)', () => {
     const actual = describeConventionsCheck(await release.subject.checkConventions('custom.yaml'));
 
     // Assert
-    expect(actual).toContain('`releaser conventions -c custom.yaml`');
+    expect(actual).toContain("`releaser conventions -c 'custom.yaml'`");
+  });
+
+  it('should quote a configuration path containing whitespace in the remedy', async () => {
+    // Arrange — the remedy is an instruction the operator pastes. An unquoted
+    // path with a space splits into two arguments, so the command would
+    // regenerate a different file than the one that was judged.
+    const release = fixture();
+
+    // Act
+    const spaced = describeConventionsCheck(await release.subject.checkConventions('my configs/rel.yaml'));
+    const quoted = describeConventionsCheck(await release.subject.checkConventions("odd'name.yaml"));
+
+    // Assert
+    expect(spaced).toContain("`releaser conventions -c 'my configs/rel.yaml'`");
+    expect(quoted).toContain("odd'\\''name.yaml");
   });
 });
