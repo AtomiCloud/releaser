@@ -49,6 +49,16 @@ goreleaser release --clean --skip=publish --release-notes ./IncrementalChangelog
 # The line stays in this position deliberately: `cli-contracts.sh fury-wiring`
 # asserts stage < fury < publish, and that ordering is the contract's intent.
 # Only the FATALITY is suspended, not the order.
+#
+# ⚠️ THE WIDTH OF THIS GUARD IS WIDER THAN THE INCIDENT THAT MOTIVATED IT, AND
+# THAT IS DELIBERATE. It catches ANY non-zero exit from fury.sh — not only the
+# 403, but a missing FURY_TOKEN or FURY_ENDPOINT, a DNS or connect failure, a
+# timeout, any curl error. The ruling suspends the CHANNEL, not one status code.
+# What keeps that breadth from hiding a population: the annotation below fires
+# on EVERY failure regardless of cause, so a transient network fault and a
+# permanent credential refusal are both announced. The guard defers the failure;
+# it does not conceal it. If the annotation is ever removed, this breadth stops
+# being safe — which is why `cli-contracts.sh fury-wiring` asserts both.
 echo "📤 Pushing Linux packages to Gemfury ..."
 if ! ./scripts/release/fury.sh; then
   # A GitHub Actions warning annotation, so a GREEN run still VISIBLY carries the
