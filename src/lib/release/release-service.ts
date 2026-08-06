@@ -3,6 +3,7 @@ import type { ReleaserConfig } from '../config/model';
 import { ReleaseError, ReleaserError } from '../errors';
 import type { ConventionsService } from './conventions-service';
 import type { HookTemplate } from './hook-template';
+import { unifiedDiff } from './line-diff';
 import type { NotesService } from './notes-service';
 import type { IClock, IConfigRepository, IFileSystem, IGit, IGitHub, IHookRunner, LoadedConfig } from './ports';
 import type { ReleaseTag, VersionService } from './version-service';
@@ -20,6 +21,67 @@ export interface ReleasePreview {
 
 const LOCK_FILES = ['bun.lock', 'bun.lockb', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock'] as const;
 const SKIP_CI = /\[(?:skip ci|ci skip)\]/i;
+const DEFAULT_CONFIG_PATH = 'atomi_release.yaml';
+
+/**
+ * `match` — the document on disk is byte-identical to what the configuration
+ * generates. `missing` — no document exists at the configured path.
+ * `drift` — a document exists and differs, i.e. it was hand-edited or the
+ * configuration moved on without it.
+ */
+type ConventionsCheckStatus = 'match' | 'missing' | 'drift';
+
+export interface ConventionsCheck {
+  readonly status: ConventionsCheckStatus;
+  /** The configured document path that was judged. */
+  readonly path: string;
+  /** The configuration the expected bytes were generated from. */
+  readonly configPath: string;
+  readonly expected: string;
+  /** The bytes on disk, or `null` when the document is missing. */
+  readonly actual: string | null;
+  /** Unified diff of expected against actual; empty unless `status` is `drift`. */
+  readonly diff: string;
+  readonly warnings: readonly string[];
+}
+
+/**
+ * Single-quotes a path for a POSIX shell, closing and reopening the quote
+ * around any embedded quote. The remedy is an instruction the operator is meant
+ * to paste, so a path containing whitespace must not split into two arguments
+ * and silently regenerate a different file than the one that was judged.
+ */
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+function remedyCommand(configPath: string): string {
+  return configPath === DEFAULT_CONFIG_PATH
+    ? 'releaser conventions'
+    : `releaser conventions -c ${shellQuote(configPath)}`;
+}
+
+/**
+ * Renders the operator-facing verdict: name the rule, name the remedy, then
+ * show the difference. Kept in the domain so it is covered by the unit tier and
+ * identical across every caller.
+ */
+export function describeConventionsCheck(check: ConventionsCheck): string {
+  const remedy = remedyCommand(check.configPath);
+  if (check.status === 'match') return `${check.path} is up to date with ${check.configPath}`;
+  if (check.status === 'missing') {
+    return [
+      `D9: releaser-generated documents are regenerate-only, and ${check.path} is missing.`,
+      `Run \`${remedy}\` to generate it.`,
+    ].join('\n');
+  }
+  return [
+    `D9: releaser-generated documents are regenerate-only, and ${check.path} has drifted from ${check.configPath}.`,
+    `Hand-edits are not permitted; run \`${remedy}\` to regenerate it.`,
+    '',
+    check.diff,
+  ].join('\n');
+}
 
 async function runPhase<T>(phase: string, action: () => Promise<T>): Promise<T> {
   try {
@@ -212,6 +274,37 @@ export class ReleaseService {
     const loaded = await this.configs.load(configPath);
     await this.files.writeAtomic(loaded.config.conventions.path, this.conventions.render(loaded.config));
     return loaded;
+  }
+
+  /**
+   * The read-only mirror of {@link writeConventions}: regenerates the document
+   * in memory and compares it against the bytes on disk.
+   *
+   * Enforces D9 — releaser-generated documents are regenerate-only, so a
+   * hand-edit is a violation and must be detectable without repairing it. This
+   * path deliberately never calls `writeAtomic`: a check that silently fixes
+   * what it judges cannot be run in CI to prove the tree is clean.
+   *
+   * A configuration that cannot be read, or a template that cannot render,
+   * throws rather than reporting a match — "I could not look" and "I looked and
+   * it is clean" are different verdicts.
+   */
+  async checkConventions(configPath = 'atomi_release.yaml'): Promise<ConventionsCheck> {
+    const loaded = await this.configs.load(configPath);
+    const expected = this.conventions.render(loaded.config);
+    const path = loaded.config.conventions.path;
+    const actual = await this.files.readTextIfExists(path);
+    const base = { path, configPath, expected, actual, warnings: loaded.warnings } as const;
+    if (actual === null) return { ...base, status: 'missing', diff: '' };
+    if (actual === expected) return { ...base, status: 'match', diff: '' };
+    return {
+      ...base,
+      status: 'drift',
+      diff: unifiedDiff(expected, actual, {
+        expectedLabel: `expected (generated from ${configPath})`,
+        actualLabel: `actual (${path} on disk)`,
+      }),
+    };
   }
 }
 
