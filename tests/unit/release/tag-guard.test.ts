@@ -70,6 +70,32 @@ describe('tag guard', () => {
       // Assert
       expect(actual?.code).toBe('invalid-version');
     });
+
+    it('should refuse a MALFORMED version rather than accept it as a release', async () => {
+      // Arrange — a separator with nothing after it, and a leading-zero
+      // component, are not versions. Accepting them would let the guard report
+      // a release version it could never have computed.
+      for (const malformed of ['1.2.3-', '1.2.3+', '01.2.3', '1.2.3-rc..1', '1.02.3']) {
+        // Act
+        const actual = await guard([]).checkVersion(malformed, malformed);
+
+        // Assert
+        expect(actual?.code).toBe('invalid-version');
+      }
+    });
+
+    it('should still accept every well-formed version — the must-differ control', async () => {
+      // Arrange — the tightened grammar must not reject what it accepted
+      // before. Without this arm a grammar that rejected everything would pass
+      // the malformed cases above.
+      for (const wellFormed of ['1.2.3', 'v1.2.3', 'v1.2.3-rc.1', '1.2.3+build.4', '1.0.0+build-4', '0.0.0']) {
+        // Act
+        const actual = await guard([]).checkVersion(wellFormed, wellFormed);
+
+        // Assert — parsed, so it reaches the collision test and finds it free.
+        expect(actual).toBeNull();
+      }
+    });
   });
 
   describe('checkVisibility', () => {
@@ -98,6 +124,28 @@ describe('tag guard', () => {
 
       // Assert
       expect(actual).toBeNull();
+    });
+
+    it('should not count a MALFORMED tag as a blocking version tag', async () => {
+      // Arrange — these are unreachable and version-shaped enough to be
+      // mistaken for versions. Counting them would refuse a release over a tag
+      // that is not a version at all.
+      const actual = await guard(['1.2.3-', '1.2.3+', '01.2.3'], []).checkVisibility();
+
+      // Assert
+      expect(actual).toBeNull();
+    });
+
+    it('should still count a well-formed unreachable tag beside malformed ones', async () => {
+      // Arrange — the population control for the arm above: the same call DOES
+      // refuse when a real version tag is present, so the null there means
+      // "not counted" rather than "checkVisibility stopped working".
+      const actual = await guard(['1.2.3-', '01.2.3', 'v2.0.0'], []).checkVisibility();
+
+      // Assert — only the well-formed tag is named.
+      expect(actual?.code).toBe('tag-not-visible');
+      expect(actual?.message).toContain('highest: v2.0.0');
+      expect(actual?.message).toContain('1 version tag(s)');
     });
 
     it('should name the highest unreachable tag across every ordering rule', async () => {
