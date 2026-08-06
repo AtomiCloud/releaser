@@ -28,7 +28,7 @@ function registeredProgram() {
 }
 
 describe('controller registration', () => {
-  it('should register exactly the six public commands', () => {
+  it('should register exactly the seven public commands', () => {
     // Arrange / Act
     const program = registeredProgram();
 
@@ -38,6 +38,7 @@ describe('controller registration', () => {
       'lint-commit',
       'next',
       'changelog',
+      'bump',
       'conventions',
       'migrate',
     ]);
@@ -58,6 +59,7 @@ describe('controller registration', () => {
       ['lint-commit', '-c, --config <path>', 'atomi_release.yaml'],
       ['next', '-c, --config <path>', 'atomi_release.yaml'],
       ['changelog', '-c, --config <path>', 'atomi_release.yaml'],
+      ['bump', '-c, --config <path>', 'atomi_release.yaml'],
       ['conventions', '-c, --config <path>', 'atomi_release.yaml'],
       ['migrate', '-c, --config <path>', 'atomi_release.yaml'],
     ]);
