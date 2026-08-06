@@ -14,12 +14,13 @@ export class MigrateController {
     program
       .command('migrate')
       .description('rewrite a legacy configuration as schemaVersion 2')
-      .action(() => this.handle());
+      .option('-c, --config <path>', 'release configuration path', 'atomi_release.yaml')
+      .action((options: { config: string }) => this.handle(options.config));
   }
 
-  async handle(): Promise<void> {
+  async handle(configPath: string): Promise<void> {
     try {
-      this.io.write((await this.migration.migrate()).output);
+      this.io.write((await this.migration.migrate(configPath)).output);
       this.io.setExitCode(EXIT_SUCCESS);
     } catch (error) {
       this.io.writeError(`${userMessage(error)}\n`);

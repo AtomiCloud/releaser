@@ -13,12 +13,13 @@ export class ChangelogController {
     program
       .command('changelog')
       .description('print pending release notes')
-      .action(() => this.handle());
+      .option('-c, --config <path>', 'release configuration path', 'atomi_release.yaml')
+      .action((options: { config: string }) => this.handle(options.config));
   }
 
-  async handle(): Promise<void> {
+  async handle(configPath: string): Promise<void> {
     try {
-      const preview = await this.releases.preview();
+      const preview = await this.releases.preview(configPath);
       if (preview !== null) this.io.write(preview.notes);
       this.io.setExitCode(EXIT_SUCCESS);
     } catch (error) {

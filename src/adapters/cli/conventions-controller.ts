@@ -13,12 +13,13 @@ export class ConventionsController {
     program
       .command('conventions')
       .description('write the configured commit-conventions document')
-      .action(() => this.handle());
+      .option('-c, --config <path>', 'release configuration path', 'atomi_release.yaml')
+      .action((options: { config: string }) => this.handle(options.config));
   }
 
-  async handle(): Promise<void> {
+  async handle(configPath: string): Promise<void> {
     try {
-      const loaded = await this.releases.writeConventions();
+      const loaded = await this.releases.writeConventions(configPath);
       for (const warning of loaded.warnings) this.io.writeError(`warning: ${warning}\n`);
       this.io.write(`wrote ${loaded.config.conventions.path}\n`);
       this.io.setExitCode(EXIT_SUCCESS);

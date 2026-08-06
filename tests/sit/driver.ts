@@ -52,7 +52,9 @@ class InProcessCliDriver implements CliDriver {
     };
     const world = { ...buildWorld(cwd, { ...process.env, ...env }), io };
     const program = createProgram();
-    registerDomain(program, world);
+    // Subcommands inherit the output configuration when they are created, so this
+    // must precede registerDomain or `<sub> --help` would escape to the real
+    // stdout and this driver would disagree with the binary one.
     program.configureOutput({
       writeOut: text => {
         out += text;
@@ -61,6 +63,7 @@ class InProcessCliDriver implements CliDriver {
         err += text;
       },
     });
+    registerDomain(program, world);
     try {
       await program.parseAsync(['bun', 'releaser', ...args]);
     } catch (error) {
