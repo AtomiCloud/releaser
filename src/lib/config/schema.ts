@@ -97,6 +97,31 @@ const commit = z.strictObject({
   assets: z.array(z.string().min(1)).nonempty(),
 });
 
+/**
+ * One file whose version the releaser owns.
+ *
+ * Naming a `file` requires a non-empty `reason`, enforced here rather than by
+ * review: an override is a claim that this repository's layout differs from the
+ * preset's default, and a silent override is how the wrong file gets bumped for
+ * a year without anyone knowing why it was pointed there.
+ */
+const bump = z
+  .strictObject({
+    type: z.enum(['node-version', 'dart-version', 'dotnet-version', 'plain-version']),
+    file: z.string().min(1).nullable().default(null),
+    reason: z.string().min(1).nullable().default(null),
+  })
+  .refine(value => value.file === null || value.reason !== null, {
+    message: 'a bump entry that names a file must give a non-empty reason for the override',
+    path: ['reason'],
+  })
+  // dotnet ships no default path, so an entry naming no file has nothing to act
+  // on. Caught here rather than at release time, where it would fail mid-run.
+  .refine(value => value.type !== 'dotnet-version' || value.file !== null, {
+    message: 'dotnet-version has no default file, so the entry must name one explicitly',
+    path: ['file'],
+  });
+
 const release = z.strictObject({
   branches: z.array(z.string().min(1)).nonempty(),
   tagFormat: z
@@ -108,6 +133,7 @@ const release = z.strictObject({
     }),
   changelog,
   commit,
+  bumps: z.array(bump).default([]),
   github: github.default(false),
   hooks,
 });

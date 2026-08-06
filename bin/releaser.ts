@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { Command, CommanderError } from 'commander';
 import pkg from '../package.json' with { type: 'json' };
+import { BumpController } from '../src/adapters/cli/bump-controller';
 import { ChangelogController } from '../src/adapters/cli/changelog-controller';
 import { ConventionsController } from '../src/adapters/cli/conventions-controller';
 import { LintCommitController } from '../src/adapters/cli/lint-commit-controller';
@@ -91,6 +92,7 @@ export function registerDomain(program: Command, world: CliWorld): void {
   new LintCommitController(world.configs, world.files, new CommitLinter(), world.io).register(program);
   new NextController(releases, world.io).register(program);
   new ChangelogController(releases, world.io).register(program);
+  new BumpController(releases, world.io).register(program);
   new ConventionsController(releases, world.io).register(program);
   new MigrateController(migration, world.io).register(program);
 }

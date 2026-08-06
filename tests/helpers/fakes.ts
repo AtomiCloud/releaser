@@ -53,6 +53,7 @@ export const TEST_CONFIG: ReleaserConfig = {
     branches: ['main'],
     tagFormat: 'v${version}',
     changelog: { path: 'Changelog.md', title: '# Changelog' },
+    bumps: [],
     commit: {
       message: 'release: ${version}\n\n${notes}',
       assets: ['Changelog.md', 'docs/developer/CommitConventions.md'],

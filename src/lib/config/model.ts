@@ -79,11 +79,21 @@ interface CommitConfig {
   readonly assets: readonly string[];
 }
 
+/** One file whose version the releaser owns during a release. */
+interface BumpEntry {
+  readonly type: 'node-version' | 'dart-version' | 'dotnet-version' | 'plain-version';
+  /** Overrides the preset's default path; requires a `reason`. */
+  readonly file: string | null;
+  /** Why this repository's layout differs from the preset default. */
+  readonly reason: string | null;
+}
+
 interface ReleaseConfig {
   readonly branches: readonly string[];
   readonly tagFormat: string;
   readonly changelog: ChangelogConfig;
   readonly commit: CommitConfig;
+  readonly bumps: readonly BumpEntry[];
   readonly github: GitHubConfig;
   readonly hooks: HooksConfig;
 }

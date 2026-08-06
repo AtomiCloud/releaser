@@ -113,11 +113,16 @@ release:
       - package.json
       - VERSION
       - docs/developer/CommitConventions.md
+  # The releaser owns its own version number, which is what D5 asks of every
+  # repository it releases. These two entries replace scripts/release/bump.sh,
+  # which did exactly this and nothing else: `bun pm pkg set version` and a
+  # printf into VERSION, both stripping a leading `v`.
+  bumps:
+    - type: plain-version
+    - type: node-version
   github: false
   hooks:
     prepare:
       - phase: beforeWrite
         command: ./scripts/release/backup-changelog.sh
-      - phase: afterWrite
-        command: ./scripts/release/bump.sh ${version}
     success: []

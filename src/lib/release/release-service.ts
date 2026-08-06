@@ -1,6 +1,7 @@
 import type { RawCommit } from '../commits/model';
 import type { ReleaserConfig } from '../config/model';
 import { ReleaseError, ReleaserError } from '../errors';
+import { bumpPath, bumpPreset } from './bump-presets';
 import type { ConventionsService } from './conventions-service';
 import type { HookTemplate } from './hook-template';
 import { unifiedDiff } from './line-diff';
@@ -169,6 +170,36 @@ export class ReleaseService {
     if (refusal !== null) throw new ReleaseError(renderRefusal(refusal), 'tag-guard');
   }
 
+  /**
+   * Applies the configured bumps for `version`.
+   *
+   * Every file is read and transformed BEFORE any is written, so a failure
+   * anywhere leaves the tree untouched rather than half-bumped. Returns the
+   * paths written, so a caller can report what it changed.
+   */
+  private async writeBumps(config: ReleaserConfig, version: string): Promise<readonly string[]> {
+    const pending: { path: string; content: string }[] = [];
+    for (const entry of config.release.bumps) {
+      const path = bumpPath(entry.type, entry.file);
+      const current = await this.files.readTextIfExists(path);
+      if (current === null) throw new ReleaseError(`bump target ${path} does not exist`, 'write:versions');
+      pending.push({ path, content: bumpPreset(entry.type).apply(path, current, version).content });
+    }
+    for (const write of pending) await this.files.writeAtomic(write.path, write.content);
+    return pending.map(write => write.path);
+  }
+
+  /**
+   * Stamps the configured version files without releasing.
+   *
+   * For manual repair and verification arms only — the release owns bumping, so
+   * this exists so a human can re-stamp a tree, not so a template can invoke it.
+   */
+  async bump(version: string, configPath = DEFAULT_CONFIG_PATH): Promise<readonly string[]> {
+    const loaded = await this.configs.load(configPath);
+    return this.writeBumps(loaded.config, version);
+  }
+
   async preview(configPath = 'atomi_release.yaml'): Promise<ReleasePreview | null> {
     const loaded = await this.configs.load(configPath);
     const branch = await this.git.currentBranch();
@@ -233,6 +264,13 @@ export class ReleaseService {
         prependNotes(current, preview.config.release.changelog.title, preview.notes),
       );
     });
+
+    // The releaser owns the version number in every runtime it releases, so the
+    // bump is a write phase of the release rather than a separate capability a
+    // template has to remember to invoke. Every file is read and transformed
+    // BEFORE any is written, so a failure anywhere leaves the tree untouched
+    // rather than half-bumped.
+    await runPhase('write:versions', () => this.writeBumps(preview.config, preview.version));
 
     for (const hook of preview.config.release.hooks.prepare.filter(candidate => candidate.phase === 'afterWrite')) {
       await runPhase('prepare:afterWrite', () =>
