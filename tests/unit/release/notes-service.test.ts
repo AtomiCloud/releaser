@@ -23,9 +23,15 @@ describe('notes service', () => {
 
     // Assert
     expect(actual).toStartWith('## 1.0.0 (2026-07-22)');
-    expect(actual).toContain('## 1.0.0 (2026-07-22)\n\n\n### ✨ Features ✨');
+    // ONE blank line between blocks, and dash bullets: this is the shape a
+    // markdown formatter already considers canonical, so an adopting repository
+    // does not fail its own format gate on a changelog nobody edited.
+    expect(actual).toContain('## 1.0.0 (2026-07-22)\n\n### ✨ Features ✨');
+    expect(actual).not.toContain('\n\n\n');
+    expect(actual).toContain('\n- alpha (');
+    expect(actual).not.toContain('\n* ');
     expect(actual.indexOf('alpha')).toBeLessThan(actual.indexOf('zebra'));
-    expect(actual).toContain('**api:** zebra');
+    expect(actual).toContain('- **api:** zebra');
     expect(actual).not.toContain('hidden');
     expect(actual).toContain('https://github.com/AtomiCloud/example/commit/111111111111');
   });
