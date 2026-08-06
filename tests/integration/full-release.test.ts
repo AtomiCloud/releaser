@@ -81,4 +81,75 @@ release:
     expect(await run(['git', 'log', '-1', '--format=%s'], scratch.remote)).toBe('release: 1.0.0\n');
     expect(await run(['git', 'show', 'main:Changelog.md'], scratch.remote)).toContain('## 1.0.0');
   });
+
+  it('should bump VERSION and package.json INTO THE RELEASE COMMIT, with no bump script present', async () => {
+    // Arrange — this is the acceptance bar for retiring scripts/release/bump.sh:
+    // the script is gone and the release must still stamp both files. Asserting
+    // the tree would not prove it, because a file written and never committed
+    // passes a working-tree check while the release ships unbumped.
+    const scratch = await scratchRepository();
+    roots.push(scratch.root, scratch.remote);
+    const config = `
+schemaVersion: 2
+types:
+  - type: feat
+    desc: Features
+    section: Features
+    scopes:
+      default: { desc: Feature, release: minor }
+conventions:
+  path: CommitConventions.md
+  template: "# Conventions\\n\\nCONVENTION_DOCS_PLACEHOLDER\\n"
+release:
+  branches: [main]
+  changelog: { path: Changelog.md, title: "# Changelog" }
+  bumps:
+    - type: plain-version
+    - type: node-version
+    - type: dart-version
+      file: packages/thing/pubspec.yaml
+      reason: monorepo package layout, as dart-lib has
+  commit:
+    message: "release: \${version}\\n\\n\${notes}"
+    assets: [Changelog.md, CommitConventions.md, VERSION, package.json, packages/thing/pubspec.yaml]
+  github: false
+`;
+    await Bun.write(join(scratch.root, 'atomi_release.yaml'), config);
+    await Bun.write(join(scratch.root, 'Changelog.md'), '# Changelog\n');
+    await Bun.write(join(scratch.root, 'CommitConventions.md'), '# old\n');
+    await Bun.write(join(scratch.root, 'VERSION'), '0.1.0\n');
+    await Bun.write(join(scratch.root, 'package.json'), '{\n  "name": "fixture",\n  "version": "0.1.0"\n}\n');
+    await Bun.write(join(scratch.root, 'packages/thing/pubspec.yaml'), 'name: thing\nversion: 0.1.0\n');
+    await commitAll(scratch.root, 'feat: add local release');
+    await run(['git', 'push', '-q', '-u', 'origin', 'main'], scratch.root);
+    const files = new BunFileSystem(scratch.root);
+    const git = new GitCli(scratch.root);
+    const subject = new ReleaseService(
+      new YamlConfigRepository(files),
+      files,
+      git,
+      new BunHookRunner(scratch.root, process.env),
+      new FakeGitHub(),
+      new VersionService(),
+      new NotesService(),
+      new ConventionsService(),
+      new HookTemplate(),
+      new FakeClock(),
+      new TagGuard(git),
+    );
+
+    // Act
+    const actual = await subject.release();
+
+    // Assert — read the COMMIT, not the working tree.
+    expect(actual?.version).toBe('1.0.0');
+    expect(await run(['git', 'show', 'main:VERSION'], scratch.remote)).toBe('1.0.0\n');
+    expect(await run(['git', 'show', 'main:package.json'], scratch.remote)).toContain('"version": "1.0.0"');
+    // The NON-ROOT override, which is the half the releaser's own root VERSION
+    // could never have proved.
+    expect(await run(['git', 'show', 'main:packages/thing/pubspec.yaml'], scratch.remote)).toBe(
+      'name: thing\nversion: 1.0.0\n',
+    );
+    expect((await run(['git', 'status', '--porcelain'], scratch.root)).trim()).toBe('');
+  });
 });

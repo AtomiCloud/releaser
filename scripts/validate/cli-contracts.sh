@@ -22,8 +22,23 @@ release-backup-order)
   yq -o=json '.' atomi_release.yaml | jq -e '
     .schemaVersion == 2 and
     .release.hooks.prepare[0] == {"phase":"beforeWrite","command":"./scripts/release/backup-changelog.sh"} and
-    .release.hooks.prepare[1].phase == "afterWrite" and
     .release.github == false'
+  # D5: the releaser owns bumping, so this repository must express its own bumps
+  # as configuration rather than as a script. Asserted both ways round — the
+  # entries must exist, AND no hook may reintroduce a bump script — because a
+  # capability that is merely deleted is one that gets re-grown as a shell script
+  # the next time someone needs it in a hurry.
+  yq -o=json '.' atomi_release.yaml | jq -e '
+    [.release.bumps[].type] as $types |
+    ($types | index("plain-version") != null) and ($types | index("node-version") != null)' >/dev/null || {
+    echo '❌ atomi_release.yaml must bump its own VERSION and package.json via release.bumps' >&2
+    exit 1
+  }
+  if yq -o=json '.' atomi_release.yaml | jq -e '[.release.hooks.prepare[].command, .release.hooks.success[]] | any(test("bump"))' >/dev/null 2>&1; then
+    echo '❌ bumping is the releaser own capability; it must not be reintroduced as a hook or script' >&2
+    exit 1
+  fi
+  ! test -f scripts/release/bump.sh
   ;;
 changelog-asset)
   test -f Changelog.old.md
