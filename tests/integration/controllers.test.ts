@@ -143,7 +143,10 @@ describe('CLI controller handlers', () => {
     };
 
     // Act
-    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle('atomi_release.yaml', true);
+    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle(
+      'atomi_release.yaml',
+      true,
+    );
 
     // Assert
     expect(io.out).toEqual(['docs/developer/CommitConventions.md is up to date with atomi_release.yaml\n']);
@@ -165,7 +168,10 @@ describe('CLI controller handlers', () => {
     };
 
     // Act
-    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle('atomi_release.yaml', true);
+    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle(
+      'atomi_release.yaml',
+      true,
+    );
 
     // Assert — the check exists to fail a CI job, so nothing goes to stdout.
     expect(io.out).toEqual([]);
@@ -191,7 +197,10 @@ describe('CLI controller handlers', () => {
     };
 
     // Act
-    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle('atomi_release.yaml', true);
+    await new ConventionsController(releases({ checkConventions: async () => check }), io).handle(
+      'atomi_release.yaml',
+      true,
+    );
 
     // Assert
     expect(io.out).toEqual([]);
