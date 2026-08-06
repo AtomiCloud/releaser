@@ -84,6 +84,7 @@ pre-commit-lib.run {
       excludes = [
         "^\\.claude/skills/vendor/"
         "^Changelog\\.md$"
+        "^Changelog\\.old\\.md$"
         "^docs/developer/CommitConventions\\.md$"
         "^infra/root_chart/"
       ];
