@@ -18,7 +18,7 @@ jobs:
     name: ${{ inputs.mode == 'int' && 'Integration Tests' || 'Unit Tests' }}
     runs-on: ubuntu-24.04
     steps:
-      - uses: AtomiCloud/actions.setup-nix@v3
+      - uses: AtomiCloud/actions.setup-nix@v4
         with:
           namespacelabs: 'false'
       - uses: AtomiCloud/actions.cache-bun@v2
